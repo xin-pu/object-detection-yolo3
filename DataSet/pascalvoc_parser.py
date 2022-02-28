@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import os
-from xml.etree.ElementTree import parse
-
 import numpy as np
+from xml.etree.ElementTree import parse
 
 
 class Annotation(object):
@@ -17,7 +16,7 @@ class Annotation(object):
         pass
 
     def __str__(self):
-        info = "-" * 20 + type(self).__name__ + "_" * 20 + "\r\n"
+        info = "-" * 20 + type(self).__name__ + "-" * 20 + "\r\n"
         info += "filename:\t{}\r\n".format(self.image_filename)
         info += "size:\t({})\r\n".format(self.image_size)
         info += "labels:\t({})\r\n".format(self.labels)
@@ -38,7 +37,7 @@ class PascalVocParser(object):
         self.images_dire = r"{}\JPEGImages".format(root_dire)
 
     def __str__(self):
-        info = "-" * 20 + type(self).__name__ + "_" * 20 + "\r\n"
+        info = "-" * 20 + type(self).__name__ + "-" * 20 + "\r\n"
         info += "root dire:\t{}\r\n".format(self.root_dire)
         info += "classes:\t{}\r\n".format(self.pascal_voc_classes)
         return info
@@ -85,7 +84,7 @@ class PascalVocParser(object):
         obj_tags = root.findall("object")
         label_list = []
         code_label_list = []
-        boxes = []
+        boxes = None
         for t in obj_tags:
             label = t.find("name").text
             name_index = classes.index(label)
@@ -96,13 +95,17 @@ class PascalVocParser(object):
             y2 = float(box_tag.find("ymax").text)
             label_list.append(label)
             code_label_list.append(name_index)
-            boxes.append([x1, y1, x2, y2])
+            if boxes is None:
+                boxes = np.array([x1, y1, x2, y2]).reshape(-1, 4)
+            else:
+                box = np.array([x1, y1, x2, y2]).reshape(-1, 4)
+                boxes = np.concatenate([boxes, box])
         return label_list, code_label_list, boxes
 
 
 if __name__ == '__main__':
     dataset_dire = r"F:\PASCALVOC\VOC2007"
-    ann_filename = r"F:\PASCALVOC\VOC2007\Annotations\000012.xml"
+    ann_filename = r"F:\PASCALVOC\VOC2007\Annotations\000042.xml"
     pascal_voc_parser = PascalVocParser(dataset_dire)
     print(pascal_voc_parser)
     ann = pascal_voc_parser.get_annotation(ann_filename)
