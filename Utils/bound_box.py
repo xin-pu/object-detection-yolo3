@@ -61,7 +61,8 @@ if __name__ == '__main__':
     test_box2 = BoundBox(100, 200, 25, 40, [0, 0, 0, 0.8, 0.7, 0])
     print(test_box)
 
-    iou = test_box.get_iou_with_bound_box(test_box2)
-    print(iou)
     res = test_box.get_match_bound_box([test_box2])
     print(res)
+
+    iou = test_box.get_iou_with_bound_box(test_box2)
+    print(iou)

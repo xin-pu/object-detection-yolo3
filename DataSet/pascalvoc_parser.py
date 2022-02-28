@@ -55,7 +55,7 @@ class PascalVocParser(object):
         annotation.image_filename = os.path.join(self.images_dire, PascalVocParser.get_image_filename(root))
         annotation.image_size = PascalVocParser.get_image_size(tree)
         annotation.labels, annotation.code_labels, annotation.boxes = \
-            PascalVocParser.get_objects(root, pascal_voc_parser.pascal_voc_classes)
+            PascalVocParser.get_objects(root, self.pascal_voc_classes)
 
         return annotation
 
