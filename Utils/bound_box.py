@@ -1,4 +1,4 @@
-from iou import *
+from Utils.iou import *
 
 
 class BoundBox:
@@ -38,7 +38,13 @@ Initial Bound Box with centroid rect: x, y, w ,h
             if max_iou < temp_iou:
                 match_index = i
                 max_iou = temp_iou
-        return bound_boxes[match_index]
+        return match_index, bound_boxes[match_index]
+
+    def get_match_anchor_box(self, anchor_boxes):
+        shift_box = BoundBox(0, 0, self.w, self.h)
+        bound_boxes = [BoundBox(0, 0, box[2], box[3]) for box in anchor_boxes]
+        match_index, bound = shift_box.get_match_bound_box(bound_boxes)
+        return match_index, anchor_boxes[match_index]
 
     def as_centroid_rect(self):
         return np.array([self.x, self.y, self.w, self.h])
@@ -59,10 +65,14 @@ Initial Bound Box with centroid rect: x, y, w ,h
 if __name__ == '__main__':
     test_box = BoundBox(100, 200, 30, 40, [0, 0, 0, 0.8, 0.7, 0])
     test_box2 = BoundBox(100, 200, 25, 40, [0, 0, 0, 0.8, 0.7, 0])
+    test_box3 = BoundBox(100, 200, 30, 41, [0, 0, 0, 0.8, 0.7, 0])
     print(test_box)
 
-    res = test_box.get_match_bound_box([test_box2])
+    index, res = test_box.get_match_bound_box([test_box2, test_box3])
     print(res)
+
+    _, anchor_box = test_box.get_match_anchor_box([[0, 0, 25, 40], [0, 0, 30, 41]])
+    print(anchor_box)
 
     iou = test_box.get_iou_with_bound_box(test_box2)
     print(iou)

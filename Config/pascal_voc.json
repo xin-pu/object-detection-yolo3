@@ -60,6 +60,7 @@
     "learning_rate": 1e-4,
     "save_folder": "weights/tray_detection",
     "enhance": false,
+    "shuffle": true,
     "random_net_size": false,
     "pre_train": true,
     "pretrain_weight": "yolov3_weight.h5",

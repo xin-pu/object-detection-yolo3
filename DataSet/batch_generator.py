@@ -1,14 +1,11 @@
 import glob
 import os
-import numpy as np
+from Utils.bound_box import *
+from Utils.convert import *
 
+from DataSet.image_enhance import ImageEnhance
 from DataSet.pascalvoc_parser import PascalVocParser
-
-
-def get_annotation(ann_filename, image_dire, labels):
-    parser = PascalVocParser(labels, image_dire)
-    annotation = parser.get_annotation(ann_filename)
-    return annotation
+from Config.train_config import *
 
 
 class BatchGenerator(object):
@@ -24,178 +21,128 @@ class BatchGenerator(object):
         self.anchors_array = model_configs.anchor_array
         self.pattern_shape = model_configs.pattern_shape
 
-        annot_folder = train_configs.train_annot_folder if train_batch else train_configs.valid_annot_folder
-        image_folder = train_configs.train_image_folder if train_batch else train_configs.valid_image_folder
-        annot_filenames = self.get_ann_filenames(annot_folder) if train_batch \
-            else self.get_ann_filenames(annot_folder)[0:train_configs.valid_size]
-        self.annot_filenames = annot_filenames
-        self.img_dir = image_folder
+        self.annot_folder = train_configs.train_annot_folder if train_batch \
+            else train_configs.valid_annot_folder
+        self.img_dir = train_configs.train_image_folder if train_batch \
+            else train_configs.valid_image_folder
+        self.annot_filenames = self.get_ann_filenames() if train_batch \
+            else self.get_ann_filenames()[0:train_configs.valid_size]
 
         self.enhance = train_configs.enhance
-        self.shuffle = True
-
+        self.shuffle = train_configs.shuffle
         self.batch_size = batch_size = train_configs.batch_size
-
-        self.random_net_size = train_configs.random_net_size
-        self.save_folder = train_configs.save_folder
         self.steps_per_epoch = int(len(self.annot_filenames) / batch_size)
+
         self.data_length = len(self.annot_filenames)
+        self.save_folder = train_configs.save_folder
 
         self._epoch = 0
 
-    @staticmethod
-    def get_ann_filenames(folder):
-        ann_filenames = glob.glob(os.path.join(folder, "*.xml"))
-        return ann_filenames
+    def get_ann_filenames(self):
+        return glob.glob(os.path.join(self.annot_folder, "*.xml"))
 
-    def next_batch(self):
-        classes = len(self.annot_filenames)
-        i = 0
-        while True:
-
-            inputs = np.zeros((self.batch_size, self.input_size, self.input_size, 3))
-            # [52*52 26*26 13*13]
-            y_trues = create_empty_y_true(self.batch_size, self.pattern_shape, self.classes, 3)
-
-            for batch_index in range(self.batch_size):
-                # 随机打乱标签文件名列表
-                if i == 0:
-                    np.random.shuffle(self.annot_filenames)
-
-                annotation = get_annotation(self.annot_filenames[i], self.img_dir, self.label_names)
-                image_file, boxes, coded_labels = annotation.filename, annotation.boxes, annotation.coded_labels
-                # boxes: x1,y1,x2,y2 original
-
-                img, boxes = self.get_image(image_file, boxes)
-                # boxes: x1,y1,x2,y2 resize as image resize 416
-                inputs[batch_index, ...] = img
-
-                # 更新 y_trues
-                for original_box, label in zip(boxes, coded_labels):
-                    max_anchor, scale_index, box_index = find_match_anchor(original_box, self.anchors_boxes)
-
-                    coded_box = encode_box(self.pattern_shape[scale_index], original_box, max_anchor,
-                                           self.input_size)
-                    assign_box(y_trues, scale_index, box_index, coded_box, label)
-
-                i = (i + 1) % classes
-
-            # y_trues特征图尺寸依次为小 中 大
-            # [52*52 26*26 13*13]
-            outputs = [y_trues[0], y_trues[1], y_trues[2]]
-            yield inputs, outputs
+    def __str__(self):
+        info = "-" * 20 + type(self).__name__ + "-" * 20 + "\r\n"
+        for key, value in self.__dict__.items():
+            info += "{}:\t{}\r\n".format(key, value)
+        return info
 
     def get_next_batch(self):
-        classes = len(self.annot_filenames)
+        """
+        get x_input (x image) and y_outputs (y true)
+        """
+        dataset_len = len(self.annot_filenames)
         i = 0
         while True:
+            # x_inputs shape: [n,416,416,3]
+            x_inputs = np.zeros((self.batch_size, self.input_size, self.input_size, 3))
+            # y_outputs shape: [n,52,52,3,25],[n,26,26,3,25],,[n,13,13,3,25]
+            y_outputs = [
+                np.zeros((self.batch_size, self.pattern_shape[i], self.pattern_shape[i], 3, 5 + self.classes)).astype(
+                    np.float64) for i in range(3)]
 
-            inputs = np.zeros((self.batch_size, self.input_size, self.input_size, 3))
-            y_trues = create_empty_y_true(self.batch_size, self.pattern_shape, self.classes, 3)
-
+            # insert batch size of datas to x and y
             for batch_index in range(self.batch_size):
                 # 随机打乱标签文件名列表
                 if i == 0:
                     np.random.shuffle(self.annot_filenames)
-                annotation = get_annotation(self.annot_filenames[i], self.img_dir, self.label_names)
-                image_file, boxes, coded_labels = annotation.filename, annotation.boxes, annotation.coded_labels
 
-                img, boxes = self.get_image(image_file, boxes)
-                inputs[batch_index, ...] = img
+                print(self.annot_filenames[i])
 
-                # 更新 y_trues
-                for original_box, label in zip(boxes, coded_labels):
-                    max_anchor, scale_index, box_index = find_match_anchor(original_box, self.anchors_boxes)
-                    coded_box = encode_box(self.pattern_shape[scale_index], original_box, max_anchor,
-                                           self.input_size)
-                    assign_box(y_trues, scale_index, box_index, coded_box, label)
+                # step 1: initial annotation
+                annotation = self.get_annotation(self.annot_filenames[i], self.img_dir, self.label_names)
+                image_file, boxes, labels_code = annotation.image_filename, annotation.boxes, annotation.labels_code
 
-                i = (i + 1) % classes
+                # step 2: initial x_inputs and update boxes
+                x_inputs[batch_index, ...], boxes = self.get_image_with_enhance(image_file, boxes)
 
-            # y_trues特征图尺寸依次为大、中、小
-            # [13*13 26*26 52*52]
-            outputs = [y_trues[0], y_trues[1], y_trues[2]]
-            return inputs, outputs
+                # step 3: initial y_inputs
+                for original_box, label in zip(boxes, labels_code):
+                    match_index, match_anchor = self.get_match_anchor_boxes(original_box, self.anchors_boxes)
+                    lay_index, box_index = match_index // 3, match_index % 3
 
-    def get_image(self, image_file, boxes):
-        img_augmenter = ImageAugment(self.input_size, self.input_size, self.enhance)
+                    code_box = self.convert_to_encode_box(original_box, match_anchor, self.pattern_shape[lay_index])
+                    self.assign_box(y_outputs, batch_index, lay_index, box_index, code_box, label)
+
+                i = (i + 1) % dataset_len
+                print("\r\n")
+
+            outputs = [y_outputs[0], y_outputs[1], y_outputs[2]]
+            return x_inputs, outputs
+
+    def get_image_with_enhance(self, image_file, boxes):
+        """
+get image and update boxes when enable enhance
+        :param image_file:
+        :param boxes:
+        :return:
+        """
+        img_augmenter = ImageEnhance(self.input_size, self.input_size, self.enhance)
         img, boxes = img_augmenter.get_image(image_file, boxes)
-        return normalize(img), boxes
+        return img / 255., boxes
 
+    def convert_to_encode_box(self, original_min_max_box, match_anchor_box, patter_shape):
+        return convert_to_encode_box(patter_shape, self.input_size, original_min_max_box, match_anchor_box)
 
-def find_match_anchor(box, anchor_boxes):
-    """
-    # Args
-        box : array, shape of (4,)
-        anchor_boxes : array, shape of (9, 4)
-    """
-    from utils.box import find_match_box
-    x1, y1, x2, y2 = box
-    shifted_box = np.array([0, 0, x2 - x1, y2 - y1])
+    @staticmethod
+    def get_annotation(ann_filename, image_dire, labels):
+        parser = PascalVocParser(image_dire, labels)
+        annotation = parser.get_annotation(ann_filename)
+        return annotation
 
-    max_index = find_match_box(shifted_box, anchor_boxes)
-    max_anchor = anchor_boxes[max_index]
+    @staticmethod
+    def get_match_anchor_boxes(box, anchor_boxes):
+        box = convert_to_centroid(np.array([box]))[0]
+        bound_box = BoundBox(box[0], box[1], box[2], box[3])
+        return bound_box.get_match_anchor_box(anchor_boxes)
 
-    lay_index = max_index // 3
-    box_index = max_index % 3
-    return max_anchor, lay_index, box_index
+    @staticmethod
+    def assign_box(yolo_true_output, batch_index, lay_index, box_index, box, label):
 
+        center_x, center_y, _, _ = box
 
-def create_empty_y_true(batch_size, pattern_shape, n_classes, n_boxes=3):
-    y_trues = [np.zeros((batch_size, pattern_shape[i], pattern_shape[i],
-                         n_boxes, 5 + n_classes)).astype(np.float32) for i in range(n_boxes)]
+        # determine the location of the cell responsible for this object
+        grid_x = int(np.floor(center_x))
+        grid_y = int(np.floor(center_y))
 
-    return y_trues
-
-
-def encode_box(pattern_shape, original_box, anchor_box, input_size):
-    x1, y1, x2, y2 = original_box
-    _, _, anchor_w, anchor_h = anchor_box
-
-    # determine the yolo to be responsible for this bounding box
-    rate_w = rate_h = float(pattern_shape) / input_size
-
-    # determine the position of the bounding box on the grid
-    x_center = (x1 + x2) / 2.0 * rate_w  # sigma(t_x) + c_x
-    y_center = (y1 + y2) / 2.0 * rate_h  # sigma(t_y) + c_y
-
-    # determine the sizes of the bounding box
-    w = np.log(max((x2 - x1), 1) / float(anchor_w))  # t_w
-    h = np.log(max((y2 - y1), 1) / float(anchor_h))  # t_h
-    # print("x1, y1, x2, y2", x1, y1, x2, y2)
-    # print("xc, yc, w, h", x_center, y_center, w, h)
-
-    return [x_center, y_center, w, h]
-
-
-def assign_box(yolo_true_output, lay_index, box_index, box, label):
-    center_x, center_y, _, _ = box
-
-    # determine the location of the cell responsible for this object
-    grid_x = int(np.floor(center_x))
-    grid_y = int(np.floor(center_y))
-
-    # assign ground truth x, y, w, h, confidence and class probability to y_batch
-    yolo_true_output[lay_index][:, grid_y, grid_x, box_index, 0:4] = box
-    yolo_true_output[lay_index][:, grid_y, grid_x, box_index, 4] = 1.
-    yolo_true_output[lay_index][:, grid_y, grid_x, box_index, 5 + label] = 1
-
-
-def normalize(image):
-    return image / 255.
+        # assign ground truth x, y, w, h, confidence and class probability to y_batch
+        yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 0:4] = box
+        yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 4] = 1.
+        yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 5 + label] = 1
+        print(yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, :])
 
 
 if __name__ == '__main__':
-    from configs.task_config import *
-
-    true = create_empty_y_true(1, (52, 26, 13), 2)
-    config_file = r"../configs\pascal_voc.json"
+    config_file = r"..\config\pascal_voc.json"
     with open(config_file) as data_file:
         config = json.load(data_file)
 
     model_cfg = ModelConfig(config["model"])
     train_cfg = TrainConfig(config["train"])
+    print(model_cfg)
+    print(train_cfg)
+
     train_generator = BatchGenerator(model_cfg, train_cfg, True)
     x, y = train_generator.get_next_batch()
-    print(x[0])
+
     print(y[0].shape, y[1].shape, y[2].shape)

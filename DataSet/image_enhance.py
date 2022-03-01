@@ -21,7 +21,7 @@ class ImageEnhance(object):
 
     def get_image(self, image_filename, boxes):
         """
-
+        get image from filename
         :param image_filename: str
         :param boxes:  array, shape of (N, 4) - min max box
         :return:
@@ -110,10 +110,13 @@ class ImageEnhance(object):
 if __name__ == '__main__':
     dataset_dire = r"F:\PASCALVOC\VOC2007"
     ann_filename = r"F:\PASCALVOC\VOC2007\Annotations\000023.xml"
-    parser = PascalVocParser(dataset_dire)
+    class_labels = ["aeroplane", "bicycle", "bird", "boat", "bottle",
+                    "bus", "car", "cat", "chair", "cow",
+                    "diningtable", "dog", "horse", "motorbike", "person",
+                    "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
+    parser = PascalVocParser(dataset_dire, class_labels)
     ann = parser.get_annotation(ann_filename)
     print(ann)
     res_image, res_boxes = ImageEnhance(416, 416, True).get_image(ann.image_filename, ann.boxes)
     print(res_boxes)
     cv2.imshow("hello", res_image)
-

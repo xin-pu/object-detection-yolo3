@@ -9,44 +9,33 @@ class Annotation(object):
     image_filename = None
     image_size = None
     boxes = []
-    labels = []
-    code_labels = []
+    labels_str = []
+    labels_code = []
 
     def __init__(self):
         pass
 
     def __str__(self):
         info = "-" * 20 + type(self).__name__ + "-" * 20 + "\r\n"
-        info += "filename:\t{}\r\n".format(self.image_filename)
-        info += "size:\t({})\r\n".format(self.image_size)
-        info += "labels:\t({})\r\n".format(self.labels)
-        info += "labels:\t({})\r\n".format(self.code_labels)
-        info += "boxes:\t({})\r\n".format(self.boxes)
+        for key, value in self.__dict__.items():
+            info += "{}:\t{}\r\n".format(key, value)
         return info
 
 
 class PascalVocParser(object):
-    pascal_voc_classes = ["aeroplane", "bicycle", "bird", "boat", "bottle",
-                          "bus", "car", "cat", "chair", "cow",
-                          "diningtable", "dog", "horse", "motorbike", "person",
-                          "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
 
-    def __init__(self, root_dire):
+    def __init__(self, root_dire, class_labels):
         self.root_dire = root_dire
-        self.annotations_dire = r"{}\Annotations".format(root_dire)
-        self.images_dire = r"{}\JPEGImages".format(root_dire)
+        self.class_labels = class_labels
+        self.images_dire = root_dire
 
     def __str__(self):
         info = "-" * 20 + type(self).__name__ + "-" * 20 + "\r\n"
-        info += "root dire:\t{}\r\n".format(self.root_dire)
-        info += "classes:\t{}\r\n".format(self.pascal_voc_classes)
+        for key, value in self.__dict__.items():
+            info += "{}:\t{}\r\n".format(key, value)
         return info
 
     def get_annotation(self, annotation_file):
-        """
-
-        :rtype: Annotation
-        """
 
         tree, root = self.get_tree_root(annotation_file)
 
@@ -54,8 +43,8 @@ class PascalVocParser(object):
 
         annotation.image_filename = os.path.join(self.images_dire, PascalVocParser.get_image_filename(root))
         annotation.image_size = PascalVocParser.get_image_size(tree)
-        annotation.labels, annotation.code_labels, annotation.boxes = \
-            PascalVocParser.get_objects(root, self.pascal_voc_classes)
+        annotation.labels_str, annotation.labels_code, annotation.boxes = \
+            PascalVocParser.get_objects(root, self.class_labels)
 
         return annotation
 
@@ -104,9 +93,13 @@ class PascalVocParser(object):
 
 
 if __name__ == '__main__':
-    dataset_dire = r"F:\PASCALVOC\VOC2007"
+    dataset_dire = r"F:\PASCALVOC\VOC2007\JPEGImages"
     ann_filename = r"F:\PASCALVOC\VOC2007\Annotations\000042.xml"
-    pascal_voc_parser = PascalVocParser(dataset_dire)
+    pascal_voc_2007_labels = ["aeroplane", "bicycle", "bird", "boat", "bottle",
+                              "bus", "car", "cat", "chair", "cow",
+                              "diningtable", "dog", "horse", "motorbike", "person",
+                              "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
+    pascal_voc_parser = PascalVocParser(dataset_dire, pascal_voc_2007_labels)
     print(pascal_voc_parser)
     ann = pascal_voc_parser.get_annotation(ann_filename)
     print(ann)
