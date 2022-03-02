@@ -1,7 +1,7 @@
-
-from Utils.box import *
-import numpy as np
 import cv2
+
+from Utils.bound_box import BoundBox, nms_boxes
+from Utils.convert import *
 
 IDX_X = 0
 IDX_Y = 1
@@ -50,7 +50,7 @@ class YoloDetector(object):
         all_boxes = self.post_process(yolo_res, image_h, image_w)
         print(len(all_boxes))
         if len(all_boxes) > 0:
-            boxes, probs = boxes_to_array(all_boxes)
+            boxes, probs = convert_boxes_to_centroid_boxes(all_boxes)
             boxes = convert_to_minmax(boxes)
             labels = np.array([b.get_label() for b in all_boxes])
 

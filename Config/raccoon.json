@@ -1,0 +1,50 @@
+{
+  "model": {
+    "anchors": [
+      17,
+      18,
+      28,
+      24,
+      36,
+      34,
+      42,
+      44,
+      56,
+      51,
+      72,
+      66,
+      90,
+      95,
+      92,
+      154,
+      139,
+      281
+    ],
+    "labels": [
+      "raccoon"
+    ],
+    "input_size": 352,
+    "pattern_shape": [
+      44,
+      22,
+      11
+    ]
+  },
+  "train": {
+    "num_epoch": 200,
+    "train_image_folder": "F:\\Raccoon\\images",
+    "train_annot_folder": "F:\\Raccoon\\annotations\\test",
+    "valid_image_folder": "F:\\Raccoon\\images",
+    "valid_annot_folder": "F:\\Raccoon\\annotations\\val",
+    "valid_size": 20,
+    "batch_size": 4,
+    "learning_rate": 1e-3,
+    "save_folder": "",
+    "enhance": false,
+    "shuffle": true,
+    "random_net_size": false,
+    "pre_train": false,
+    "pretrain_weight": "yolov3_weight.h5",
+    "darknet_weight": "yolov3.weights"
+  }
+}

@@ -11,7 +11,7 @@ convert min, max box array to convert_to_centroid box array
     :param min_max_boxes:
     :return:
     """
-    min_max_boxes = min_max_boxes.astype(float)
+    min_max_boxes = min_max_boxes.astype(np.float)
     centroid_boxes = np.zeros_like(min_max_boxes)
 
     x1 = min_max_boxes[:, 0]
@@ -47,6 +47,22 @@ convert  convert_to_centroid box array to min, max box array
     return minmax_boxes
 
 
+def correct_yolo_boxes(boxes, image_h, image_w):
+    """
+    # Args
+        boxes : array, shape of (N, 4)
+            [0, 1]-scaled box
+    # Returns
+        boxes : array shape of (N, 4)
+            ([0, image_h], [0, image_w]) - scaled box
+    """
+    for i in range(len(boxes)):
+        boxes[i].x = int(boxes[i].x * image_w)
+        boxes[i].w = int(boxes[i].w * image_w)
+        boxes[i].y = int(boxes[i].y * image_h)
+        boxes[i].h = int(boxes[i].h * image_h)
+
+
 def convert_to_yolo_boxes(centroid_real_boxes, image_h, image_w):
     """
     Convert
@@ -78,7 +94,7 @@ def convert_to_real_boxes(centroid_yolo_boxes, image_h, image_w):
     :param image_h: height of image
     :param image_w: width if image
     """
-    centroid_boxes = centroid_yolo_boxes.astype(float)
+    centroid_boxes = centroid_yolo_boxes.astype(np.float)
     real_boxes = np.zeros_like(centroid_boxes)
 
     cx = centroid_boxes[:, 0]
@@ -93,6 +109,23 @@ def convert_to_real_boxes(centroid_yolo_boxes, image_h, image_w):
         real_boxes[:, 3] = h * image_h
 
     return real_boxes
+
+
+def convert_boxes_to_centroid_boxes(bound_boxes):
+    """
+    # Args
+        boxes : list of BoundBox instances
+
+    # Returns
+        centroid_boxes : (N, 4)
+        probs : (N,)
+    """
+    centroid_boxes = []
+    probs = []
+    for box in bound_boxes:
+        centroid_boxes.append([box.x, box.y, box.w, box.h])
+        probs.append(box.classes)
+    return np.array(centroid_boxes), np.max(np.array(probs), axis=1)
 
 
 if __name__ == "__main__":

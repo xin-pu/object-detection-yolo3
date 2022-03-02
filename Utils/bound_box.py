@@ -3,7 +3,7 @@ from Utils.iou import *
 
 class BoundBox:
 
-    def __init__(self, x, y, w, h, classes=None):
+    def __init__(self, x, y, w, h, object_ness=None, classes=None):
         """
 Initial Bound Box with centroid rect: x, y, w ,h
         :param x:
@@ -16,7 +16,7 @@ Initial Bound Box with centroid rect: x, y, w ,h
         self.y = y
         self.w = w
         self.h = h
-
+        self.object_ness = object_ness
         self.classes = classes
 
     def get_label(self):
@@ -60,6 +60,38 @@ Initial Bound Box with centroid rect: x, y, w ,h
         info += "class:\t{}\r\n".format(self.get_label())
         info += "score:\t{}\r\n".format(self.get_score())
         return info
+
+
+def nms_boxes(boxes, nms_threshold=0.3, obj_threshold=0.3):
+    """
+    # Args
+        boxes : list of BoundBox
+
+    # Returns
+        boxes : list of BoundBox
+            non maximum supressed BoundBox instances
+    """
+    if len(boxes) == 0:
+        return boxes
+    # suppress non-maximal boxes
+    n_classes = len(boxes[0].classes)
+    for c in range(n_classes):
+        sorted_indices = list(reversed(np.argsort([box.classes[c] for box in boxes])))
+
+        for i in range(len(sorted_indices)):
+            index_i = sorted_indices[i]
+
+            if boxes[index_i].classes[c] == 0:
+                continue
+            else:
+                for j in range(i + 1, len(sorted_indices)):
+                    index_j = sorted_indices[j]
+
+                    if boxes[index_i].get_iou_with_bound_box(boxes[index_j]) >= nms_threshold:
+                        boxes[index_j].classes[c] = 0
+    # remove the boxes which are less likely than a obj_threshold
+    boxes = [box for box in boxes if box.get_score() > obj_threshold]
+    return boxes
 
 
 if __name__ == '__main__':

@@ -28,6 +28,7 @@ class BatchGenerator(object):
         self.annot_filenames = self.get_ann_filenames() if train_batch \
             else self.get_ann_filenames()[0:train_configs.valid_size]
 
+        self.learning_rate = train_configs.learning_rate
         self.enhance = train_configs.enhance
         self.shuffle = train_configs.shuffle
         self.batch_size = batch_size = train_configs.batch_size

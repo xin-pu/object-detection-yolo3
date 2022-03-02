@@ -12,7 +12,7 @@ class HeadNet(tf.keras.Model):
     def __init__(self, n_classes=20):
         super(HeadNet, self).__init__(name='')
         self.classes = n_classes
-        n_features = 3 * (n_classes + 5)
+        n_features: int = 3 * (n_classes + 5)
 
         self.stage5_conv5 = Convolutional5(512, [75, 76, 77, 78, 79])
         self.stage5_conv2 = ConvolutionalConv(512 * 2, n_features,
@@ -31,8 +31,7 @@ class HeadNet(tf.keras.Model):
         self.stage4_concatenate = Concatenate()
 
         self.stage3_conv5 = Convolutional5(128, [99, 100, 101, 102, 103])
-        self.stage3_conv2 = ConvolutionalConv(128 * 2, n_features,
-                                              [104, 105],
+        self.stage3_conv2 = ConvolutionalConv(128 * 2, n_features, [104, 105],
                                               name="detection_layer_3_{}".format(n_features))
 
         self.num_layers = 106
@@ -80,9 +79,8 @@ if __name__ == '__main__':
     s4 = tf.constant(np.random.randn(1, 26, 26, 512).astype(np.float32))
     s5 = tf.constant(np.random.randn(1, 13, 13, 1024).astype(np.float32))
 
-    # (1, 256, 256, 3) => (1, 8, 8, 1024)
     headNet = HeadNet()
-    f5, f4, f3 = headNet([s3, s4, s5])
+    f5, f4, f3 = headNet.call([s3, s4, s5])
     print(f5.shape, f4.shape, f3.shape)
 
     for v in headNet.variables:
