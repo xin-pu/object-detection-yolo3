@@ -2,3 +2,4 @@
 .idea
 *.pyc
 *.xls;xlsx;csv
+*.h5

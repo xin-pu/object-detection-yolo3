@@ -1,4 +1,6 @@
 import tensorflow as tf
+import tensorflow.keras.losses
+from tensorflow.keras import backend as kb
 
 
 # -----------------------------------------------------------#
@@ -32,8 +34,8 @@ def create_mesh_anchor(anchors, pred_shape):
 #     Convert final layer features to bounding box parameters.
 #     Task 13*13*3*(20+5) as example   20 =len(classes), 5 = 4 box +1 prob
 # -----------------------------------------------------------#
-def adjust_pred_tensor(y_pred, shape_pre):
-    batch_size = shape_pre[0]
+def adjust_pred_tensor(y_pred):
+    batch_size = y_pred.shape[0]
     grid_offset = create_mesh_xy(batch_size, *y_pred.shape[1:4])
 
     pred_xy = tf.sigmoid(y_pred[..., :2]) + grid_offset  # sigma(t_xy) + c_xy
@@ -120,18 +122,13 @@ def loss_conf_tensor(object_mask, pred_box_conf, true_box_conf, obj_scale, noobj
 def loss_class_tensor(object_mask, pred_box_class, true_box_class, class_scale):
     true_box_class_ = tf.cast(true_box_class, tf.int64)
     class_delta = object_mask * tf.expand_dims(
-                      tf.nn.sparse_softmax_cross_entropy_with_logits(labels=true_box_class_, logits=pred_box_class),
-                      4) * class_scale
+        tf.nn.sparse_softmax_cross_entropy_with_logits(labels=true_box_class_, logits=pred_box_class),
+        4) * class_scale
     loss_class = tf.reduce_sum(class_delta, list(range(1, 5)))
     return loss_class
 
 
-# -----------------------------------------------------------#
-#     Adjust_pred_tensor
-#     Convert final layer features to bounding box parameters.
-#     Task 13*13*3*(20+5) as example   20 =len(classes), 5 = 4 box +1 prob
-# -----------------------------------------------------------#
-class Loss(tf.keras.losses.Loss):
+class Loss(tensorflow.keras.losses.Loss):
     def __init__(self,
                  image_size,
                  batch_size,
@@ -159,34 +156,49 @@ class Loss(tf.keras.losses.Loss):
     @tf.autograph.experimental.do_not_convert
     def call(self, y_true, y_pred):
         """
-
+        cal loss
         :param y_pred: [b,13,13,anchors*25]
         :param y_true: [b,13,13,anchors,25]
         :return: loss
         """
-        batch_size = self.batch_size
-
-        pattern_shape = y_pred.shape[1:3]
-        anchors_lay = self.pattern_array.index(pattern_shape[0])
-        anchors_current = tf.constant(self.anchor_array[anchors_lay], dtype=float)
-        shape_stand = [batch_size,
+        shape_stand = [self.batch_size,
                        y_pred.shape[1],
                        y_pred.shape[2],
                        3,
                        y_pred.shape[-1] // 3]
-        object_mask = tf.expand_dims(y_true[..., 4], 4)
 
-        # 1.y_pred convert to [b,13,13,anchors,25]
-        y_pred = tf.reshape(y_pred, shape_stand)
+        # Step 1 reshape y_preds from [b,13,13,anchors*25] to [b,13,13,anchors,25]
+        y_pred = self.reshape_pred(y_pred)
+
+        # Step final cal loss and sum
+        loss = self.cal_loss(y_true, y_pred, shape_stand)
+        return loss
+
+    def reshape_pred(self, y_pred):
+        anchor_shape = self.anchor_array.shape
+        patter_shape = y_pred.shape[1:3]
+        target_shape = [self.batch_size, patter_shape[0], patter_shape[1], anchor_shape[0],
+                        y_pred.shape[-1] // anchor_shape[0]]
+        return tf.reshape(y_pred, target_shape)
+
+    @staticmethod
+    def cal_loss_debug(y_true, y_pred):
+        return kb.sum(kb.abs(y_true - y_pred))
+
+    def cal_loss(self, y_true, y_pred, pred_shape):
+        target_shape = pred_shape
+        anchors_lay = self.pattern_array.index(target_shape[1])
+        anchors_current = tf.constant(self.anchor_array[anchors_lay], dtype=float)
+        object_mask = tf.expand_dims(y_true[..., 4], 4)  # 真实值中有物体的矩阵
 
         # 2. Adjust prediction (bxy, twh)
-        preds = adjust_pred_tensor(y_pred, shape_stand)
+        preds = adjust_pred_tensor(y_pred)
 
         # 3. Adjust ground truth (bxy, twh)
         trues = adjust_true_tensor(y_true)
 
         # 4. conf_delta tensor
-        conf_delta = conf_delta_tensor(y_true, preds, shape_stand, anchors_current, self.ignore_thresh)
+        conf_delta = conf_delta_tensor(y_true, preds, pred_shape, anchors_current, self.ignore_thresh)
 
         # 5. loss tensor
         wh_scale = wh_scale_tensor(trues[..., 2:4], anchors_current, self.image_size)
@@ -200,4 +212,18 @@ class Loss(tf.keras.losses.Loss):
 
 
 if __name__ == "__main__":
-    pass
+    from DataSet.batch_generator import *
+
+    config_file = r"..\config\pascal_voc.json"
+    with open(config_file) as data_file:
+        config = json.load(data_file)
+
+    model_cfg = ModelConfig(config["model"])
+    train_cfg = TrainConfig(config["train"])
+
+    y_true_test = np.ones((4, 52, 52, 3, 25)).astype(np.float32)
+    y_pred_test = np.zeros((4, 52, 52, 75)).astype(np.float32)
+
+    test_loss = Loss(model_cfg.input_size, train_cfg.batch_size,
+                     model_cfg.anchor_array, [52, 26, 13]).call(y_true_test, y_pred_test)
+    print("Sum Loss:\t{}".format(test_loss))

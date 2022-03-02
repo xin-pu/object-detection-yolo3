@@ -31,7 +31,7 @@ create anchor_boxes by array
 def convert_to_encode_box(pattern_shape, input_size, original_min_max_box, match_anchor_box):
     """
 convert to box used for prediction
-    :param pattern_shape: 53
+    :param pattern_shape: 52 or 26 or 13
     :param original_min_max_box: min,max box
     :param match_anchor_box: match centroid box
     :param input_size: 416
@@ -50,8 +50,6 @@ convert to box used for prediction
     # determine the sizes of the bounding box
     w = np.log(max((x2 - x1), 1) / float(anchor_w))  # t_w
     h = np.log(max((y2 - y1), 1) / float(anchor_h))  # t_h
-    # print("x1, y1, x2, y2", x1, y1, x2, y2)
-    # print("xc, yc, w, h", x_center, y_center, w, h)
 
     return [x_center, y_center, w, h]
 

@@ -59,15 +59,13 @@ class BatchGenerator(object):
             # y_outputs shape: [n,52,52,3,25],[n,26,26,3,25],,[n,13,13,3,25]
             y_outputs = [
                 np.zeros((self.batch_size, self.pattern_shape[i], self.pattern_shape[i], 3, 5 + self.classes)).astype(
-                    np.float64) for i in range(3)]
+                    np.float32) for i in range(3)]
 
             # insert batch size of datas to x and y
             for batch_index in range(self.batch_size):
                 # 随机打乱标签文件名列表
                 if i == 0:
                     np.random.shuffle(self.annot_filenames)
-
-                print(self.annot_filenames[i])
 
                 # step 1: initial annotation
                 annotation = self.get_annotation(self.annot_filenames[i], self.img_dir, self.label_names)
@@ -85,10 +83,9 @@ class BatchGenerator(object):
                     self.assign_box(y_outputs, batch_index, lay_index, box_index, code_box, label)
 
                 i = (i + 1) % dataset_len
-                print("\r\n")
 
             outputs = [y_outputs[0], y_outputs[1], y_outputs[2]]
-            return x_inputs, outputs
+            yield x_inputs, outputs
 
     def get_image_with_enhance(self, image_file, boxes):
         """
@@ -129,7 +126,7 @@ get image and update boxes when enable enhance
         yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 0:4] = box
         yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 4] = 1.
         yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 5 + label] = 1
-        print(yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, :])
+        # print(yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, :])
 
 
 if __name__ == '__main__':
@@ -139,10 +136,8 @@ if __name__ == '__main__':
 
     model_cfg = ModelConfig(config["model"])
     train_cfg = TrainConfig(config["train"])
-    print(model_cfg)
-    print(train_cfg)
 
     train_generator = BatchGenerator(model_cfg, train_cfg, True)
-    x, y = train_generator.get_next_batch()
-
-    print(y[0].shape, y[1].shape, y[2].shape)
+    # x, y = train_generator.get_next_batch()
+    #
+    # print(y[0].shape, y[1].shape, y[2].shape)

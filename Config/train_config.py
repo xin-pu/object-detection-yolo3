@@ -53,5 +53,6 @@ if __name__ == "__main__":
 
     model_config = ModelConfig(configs["model"])
     train_config = TrainConfig(configs["train"])
+
     print(model_config)
     print(train_config)
