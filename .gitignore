@@ -3,3 +3,5 @@
 *.pyc
 *.xls;xlsx;csv
 *.h5
+*.weights
+*.csv

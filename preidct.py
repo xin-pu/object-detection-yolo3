@@ -1,15 +1,13 @@
-import datetime
-
 import cv2
 
 from task import TaskParser, ModelInit
 
 if __name__ == '__main__':
-    image_source = r"F:\PASCALVOC\VOC2007\JPEGImages\000030.jpg"
+    image_source = r"F:\PASCALVOC\VOC2007_Val\JPEGImages\004090.jpg"
 
     # 0. create task
     print("{0}\tCreate Task\t{0}".format("-" * 50))
-    task_parser = TaskParser(r'config\pascal_voc.json')
+    task_parser = TaskParser(r'config\predict_coco.json')
 
     # 1. create model
     print("{0}\tCreate Net\t{0}".format("-" * 50))
