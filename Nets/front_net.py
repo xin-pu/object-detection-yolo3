@@ -7,7 +7,7 @@ IDX_X = 0
 IDX_Y = 1
 IDX_W = 2
 IDX_H = 3
-IDX_OBJECTNESS = 4
+IDX_OBJECT_NESS = 4
 IDX_CLASS_PROB = 5
 
 
@@ -98,7 +98,7 @@ class YoloDetector(object):
                     # 1. decode
 
                     x, y, w, h = self.decode_coordinate(y_pre_one_scale, row, col, b, anchors[b])
-                    objectness, classes = self.activate_probs(y_pre_one_scale[row, col, b, IDX_OBJECTNESS],
+                    objectness, classes = self.activate_probs(y_pre_one_scale[row, col, b, IDX_OBJECT_NESS],
                                                               y_pre_one_scale[row, col, b, IDX_CLASS_PROB:],
                                                               self.obj_thresh)
 

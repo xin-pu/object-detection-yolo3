@@ -85,6 +85,6 @@ if __name__ == '__main__':
 
     for v in headNet.variables:
         print(v.name)
-
+    print("-" * 30)
     for lay in headNet.layers:
         print(lay.name)

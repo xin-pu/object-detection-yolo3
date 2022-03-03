@@ -1,10 +1,8 @@
 from tensorflow.python.keras.callbacks import *
 from tensorflow.keras.optimizers import *
+import tensorflow as tf
 
-from Config.train_config import *
-from DataSet.batch_generator import BatchGenerator
 from Loss.loss import Loss
-from Nets.yolo3_net import get_yolo3_backend
 from task import TaskParser, ModelInit
 
 if __name__ == "__main__":
@@ -16,8 +14,7 @@ if __name__ == "__main__":
     # Create Mode
     model = task_parser.create_model(model_init=ModelInit.random)
 
-    weight_file = os.path.join(train_generator.save_folder, 'ep{epoch:03d}-loss{loss:.3f}-val-loss{val_loss:.3f}.h5')
-    checkpoint = ModelCheckpoint(weight_file,
+    checkpoint = ModelCheckpoint(train_generator.save_folder,
                                  monitor='val_loss',
                                  save_weights_only=True,
                                  save_best_only=True,
@@ -27,13 +24,13 @@ if __name__ == "__main__":
 
     reduce_lr = ReduceLROnPlateau(monitor='val_loss',
                                   factor=0.5,
-                                  patience=5,
+                                  patience=3,
                                   verbose=1,
                                   mode='min')
 
     early_stopping = EarlyStopping(monitor='val_loss',
                                    min_delta=0,
-                                   patience=25,
+                                   patience=10,
                                    verbose=1,
                                    restore_best_weights=True)
 
@@ -56,3 +53,5 @@ if __name__ == "__main__":
               epochs=100,
               callbacks=[checkpoint, reduce_lr, early_stopping, csv_logger],
               initial_epoch=0)
+
+

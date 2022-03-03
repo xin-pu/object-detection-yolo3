@@ -108,7 +108,7 @@ class ImageEnhance(object):
 
 
 if __name__ == '__main__':
-    dataset_dire = r"F:\PASCALVOC\VOC2007"
+    dataset_dire = r"F:\PASCALVOC\VOC2007\JPEGImages"
     ann_filename = r"F:\PASCALVOC\VOC2007\Annotations\000023.xml"
     class_labels = ["aeroplane", "bicycle", "bird", "boat", "bottle",
                     "bus", "car", "cat", "chair", "cow",
@@ -120,3 +120,4 @@ if __name__ == '__main__':
     res_image, res_boxes = ImageEnhance(416, 416, True).get_image(ann.image_filename, ann.boxes)
     print(res_boxes)
     cv2.imshow("hello", res_image)
+    cv2.waitKey(2000)

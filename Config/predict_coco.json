@@ -123,7 +123,7 @@
     "shuffle": true,
     "random_net_size": false,
     "pre_train": true,
-     "pretrain_weight": "yolov3_weight.h5",
+    "pretrain_weight": "yolov3_weight.h5",
     "darknet_weight": "yolov3.weights"
   }
 }

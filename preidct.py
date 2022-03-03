@@ -3,23 +3,23 @@ import cv2
 from task import TaskParser, ModelInit
 
 if __name__ == '__main__':
-    image_source = r"F:\PASCALVOC\VOC2007_Val\JPEGImages\004090.jpg"
+    image_source = r"F:\Raccoon\images\raccoon-1.jpg"
 
     # 0. create task
-    print("{0}\tCreate Task\t{0}".format("-" * 50))
+    print("{0}\tCreate Task\t{0}".format("-" * 30))
     task_parser = TaskParser(r'config\predict_coco.json')
 
     # 1. create model
-    print("{0}\tCreate Net\t{0}".format("-" * 50))
+    print("{0}\tCreate Net\t{0}".format("-" * 30))
     model = task_parser.create_model(ModelInit.original, skip_detect_layer=False)
 
     # 2. create detector
-    print("{0}\tCreate Detector\t{0}".format("-" * 50))
+    print("{0}\tCreate Detector\t{0}".format("-" * 30))
     detector = task_parser.create_detector(model)
 
     # 3. run detection
-    print("{0}\tRun Detection\t{0}".format("-" * 50))
-    boxes, labels, probs = detector.detect_from_file(image_source, 0.2)
+    print("{0}\tRun Detection\t{0}".format("-" * 30))
+    boxes, labels, probs = detector.detect_from_file(image_source)
     print(boxes, labels, probs)
 
     # 4. draw result
@@ -33,4 +33,4 @@ if __name__ == '__main__':
                     lineType=cv2.LINE_AA)
 
     cv2.imshow("Result", image)
-    cv2.waitKey(0)
+    cv2.waitKey(2000)

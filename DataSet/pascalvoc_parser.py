@@ -24,10 +24,9 @@ class Annotation(object):
 
 class PascalVocParser(object):
 
-    def __init__(self, root_dire, class_labels):
-        self.root_dire = root_dire
+    def __init__(self, image_dire, class_labels):
+        self.images_dire = image_dire
         self.class_labels = class_labels
-        self.images_dire = root_dire
 
     def __str__(self):
         info = "-" * 20 + type(self).__name__ + "-" * 20 + "\r\n"
@@ -101,5 +100,6 @@ if __name__ == '__main__':
                               "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
     pascal_voc_parser = PascalVocParser(dataset_dire, pascal_voc_2007_labels)
     print(pascal_voc_parser)
+
     ann = pascal_voc_parser.get_annotation(ann_filename)
     print(ann)
