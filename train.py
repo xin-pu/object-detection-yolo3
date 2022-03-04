@@ -14,7 +14,7 @@ if __name__ == "__main__":
     train_generator, valid_generator = task_parser.create_generator()
 
     # Create Mode
-    model = task_parser.create_model(model_init=ModelInit.random)
+    model = task_parser.create_model(model_init=ModelInit.pretrain)
 
     boardFolder = "./TensorBoard"
     tensorboard_callback = TensorBoard(boardFolder, histogram_freq=1)
@@ -57,7 +57,7 @@ if __name__ == "__main__":
               validation_data=valid_generator.get_next_batch(),
               validation_steps=valid_generator.steps_per_epoch,
               epochs=train_generator.epoch,
-              callbacks=[checkpoint, reduce_lr, early_stopping],
+              callbacks=[checkpoint, reduce_lr, early_stopping, csv_logger],
               workers=1,
               max_queue_size=8,
-              initial_epoch=0)
+              initial_epoch=29)

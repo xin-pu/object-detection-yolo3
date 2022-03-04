@@ -5,89 +5,122 @@ This is a module for calculate iou
 from Utils.convert import *
 
 
-def get_iou_from_minmax_rect(min_max_rect_a, min_max_rect_b):
-    """
-get iou
-    :param min_max_rect_a: 1-dimensional np array with min max rect
-    :param min_max_rect_b: 1-dimensional np array with min max rect
-    :return: iou
-    """
-    x_a = max(min_max_rect_a[0], min_max_rect_b[0])
-    y_a = max(min_max_rect_a[1], min_max_rect_b[1])
-    x_b = min(min_max_rect_a[2], min_max_rect_b[2])
-    y_b = min(min_max_rect_a[3], min_max_rect_b[3])
-
-    # 计算交集部分面积
-    inter_area = max(0, x_b - x_a + 1) * max(0, y_b - y_a + 1)
-
-    # 计算预测值和真实值的面积
-    rec_a_area = (min_max_rect_a[2] - min_max_rect_a[0] + 1) * (min_max_rect_a[3] - min_max_rect_a[1] + 1)
-    rec_b_area = (min_max_rect_b[2] - min_max_rect_b[0] + 1) * (min_max_rect_b[3] - min_max_rect_b[1] + 1)
-
-    # 计算IOU
-    iou = inter_area / float(rec_a_area + rec_b_area - inter_area)
-    return iou
+def get_area(min_max_rect):
+    return (min_max_rect[2] - min_max_rect[0]) * (
+            min_max_rect[3] - min_max_rect[1])
 
 
-def get_iou_from_centroid_rect(centroid_rect_a, centroid_rect_b):
-    """
-get iou
-    :param centroid_rect_a: 1-dimensional np array with centroid rect
-    :param centroid_rect_b: 1-dimensional np array with centroid rect
-    :return: iou
-    """
+def get_inter_area(min_max_rect_truth, min_max_rect_prediction):
+    inter_x_min = max(min_max_rect_truth[0], min_max_rect_prediction[0])
+    inter_x_max = min(min_max_rect_truth[2], min_max_rect_prediction[2])
 
-    minmax_a = convert_to_minmax(centroid_rect_a.reshape(-1, 4))[0]
-    minmax_b = convert_to_minmax(centroid_rect_b.reshape(-1, 4))[0]
-    return get_iou_from_minmax_rect(minmax_a, minmax_b)
+    inter_y_min = max(min_max_rect_truth[1], min_max_rect_prediction[1])
+    inter_y_max = min(min_max_rect_truth[3], min_max_rect_prediction[3])
+
+    inter_w = inter_x_max - inter_x_min
+    inter_h = inter_y_max - inter_y_min
+
+    rect_int = inter_h * inter_w if inter_w > 0 and inter_h > 0 else 0
+    return rect_int
 
 
-def get_iou_from_centroid_rect_2(box1, box2):
-    """
+def get_enclosing_area(min_max_rect_truth, min_max_rect_prediction):
+    enclosing_x_min = min(min_max_rect_truth[0], min_max_rect_prediction[0])
+    enclosing_x_max = max(min_max_rect_truth[2], min_max_rect_prediction[2])
 
-    :param box1:
-    :param box2:
-    :return:
-    """
+    enclosing_y_min = min(min_max_rect_truth[1], min_max_rect_prediction[1])
+    enclosing_y_max = max(min_max_rect_truth[3], min_max_rect_prediction[3])
 
-    def _interval_overlap(interval_a, interval_b):
-        x1, x2 = interval_a
-        x3, x4 = interval_b
+    area_enclosing = (enclosing_x_max - enclosing_x_min) * (enclosing_y_max - enclosing_y_min)
+    return area_enclosing
 
-        if x3 < x1:
-            if x4 < x1:
-                return 0
-            else:
-                return min(x2, x4) - x1
-        else:
-            if x2 < x3:
-                return 0
-            else:
-                return min(x2, x4) - x3
 
-    _, _, w1, h1 = box1.reshape(-1, )
-    _, _, w2, h2 = box2.reshape(-1, )
-    x1_min, y1_min, x1_max, y1_max = convert_to_minmax(box1.reshape(-1, 4)).reshape(-1, )
-    x2_min, y2_min, x2_max, y2_max = convert_to_minmax(box2.reshape(-1, 4)).reshape(-1, )
+def get_enclosing_c2(min_max_rect_truth, min_max_rect_prediction):
+    enclosing_x_min = min(min_max_rect_truth[0], min_max_rect_prediction[0])
+    enclosing_x_max = max(min_max_rect_truth[2], min_max_rect_prediction[2])
 
-    intersect_w = _interval_overlap([x1_min, x1_max], [x2_min, x2_max])
-    intersect_h = _interval_overlap([y1_min, y1_max], [y2_min, y2_max])
-    intersect = intersect_w * intersect_h
-    union = w1 * h1 + w2 * h2 - intersect
+    enclosing_y_min = min(min_max_rect_truth[1], min_max_rect_prediction[1])
+    enclosing_y_max = max(min_max_rect_truth[3], min_max_rect_prediction[3])
 
-    return float(intersect) / union
+    return (enclosing_x_max - enclosing_x_min) ** 2 + (enclosing_y_max - enclosing_y_min) ** 2
+
+
+# IOU Loss将4个点构成的box看成一个整体做回归
+def get_iou(min_max_rect_truth, min_max_rect_prediction):
+    # get area of predict bounding box
+    area_prediction = get_area(min_max_rect_prediction)
+    # get area of truth bounding box
+    area_truth = get_area(min_max_rect_truth)
+
+    # get int area
+    area_inter = get_inter_area(min_max_rect_truth, min_max_rect_prediction)
+
+    # get union area
+    area_union = area_prediction + area_truth - area_inter
+
+    return area_inter / area_union
+
+
+# 在IOU基础上优化两个框不想交的情况
+def get_giou(min_max_rect_truth, min_max_rect_prediction):
+    # get area of predict bounding box
+    area_prediction = get_area(min_max_rect_prediction)
+    # get area of truth bounding box
+    area_truth = get_area(min_max_rect_truth)
+
+    # get int area
+    area_int = get_inter_area(min_max_rect_truth, min_max_rect_prediction)
+
+    # get enclosing area
+    area_enclosing = get_enclosing_area(min_max_rect_truth, min_max_rect_prediction)
+
+    # get union area
+    area_union = area_prediction + area_truth - area_int
+
+    iou = area_int / area_union
+
+    return iou - (area_enclosing - area_union) / area_enclosing
+
+
+# 引入最小外接框来最大化重叠面积的惩罚项修改成最小化两个BBox中心点的标准化距离从而加速损失的收敛过程
+def get_diou(min_max_rect_truth, min_max_rect_prediction):
+    center_x_truth, center_y_truth = (min_max_rect_truth[2] - min_max_rect_truth[0]) / 2, (
+            min_max_rect_truth[3] - min_max_rect_truth[1]) / 2
+
+    center_x_prediction, center_y_prediction = (min_max_rect_prediction[2] - min_max_rect_prediction[0]) / 2, (
+            min_max_rect_prediction[3] - min_max_rect_prediction[1]) / 2
+
+    p2 = (center_x_truth - center_x_prediction) ** 2 + (center_y_truth - center_y_prediction) ** 2
+    c2 = get_enclosing_c2(min_max_rect_truth, min_max_rect_prediction)
+    return get_iou(min_max_rect_truth, min_max_rect_prediction) - float(p2) / c2
+
+
+# 在DIOU的基础上将Bounding box的纵横比考虑进损失函数中，进一步提升了回归精度
+def get_ciou(min_max_rect_truth, min_max_rect_prediction):
+    # Todo
+    pass
+
+
+def get_eiou(min_max_rect_truth, min_max_rect_prediction):
+    # Todo
+    pass
 
 
 if __name__ == "__main__":
-    minmax_rect_arr_a = np.array([[50, 50, 300, 300]])
-    minmax_rect_arr_b = np.array([[60, 60, 320, 320]])
+    minmax_rect_arr_a = np.array([[50., 50., 200., 200.]])
+    minmax_rect_arr_b = np.array([[80., 160., 220., 220.]])
 
-    centroid_rect_arr_a = convert_to_centroid(minmax_rect_arr_a)
-    centroid_rect_arr_b = convert_to_centroid(minmax_rect_arr_b)
+    inter_area = get_inter_area(minmax_rect_arr_a[0], minmax_rect_arr_b[0])
+    print(inter_area)
 
-    iou_by_min_max_rect = get_iou_from_minmax_rect(minmax_rect_arr_a[0], minmax_rect_arr_b[0])
-    iou_by_centroid_rect = get_iou_from_centroid_rect(centroid_rect_arr_a[0], centroid_rect_arr_b[0])
-    print("iou:\t{:.4f}\r\niou:\t{:.4f}".format(iou_by_min_max_rect, iou_by_centroid_rect))
+    enclosing_area = get_enclosing_area(minmax_rect_arr_a[0], minmax_rect_arr_b[0])
+    print(enclosing_area)
 
-    iou_2 = get_iou_from_centroid_rect_2(centroid_rect_arr_a[0], centroid_rect_arr_b[0])
-    print("iou:\t{:.4f}".format(iou_2))
+    iou_ = get_iou(minmax_rect_arr_a[0], minmax_rect_arr_b[0])
+    print("{:.2f}".format(iou_))
+
+    giou_ = get_giou(minmax_rect_arr_a[0], minmax_rect_arr_b[0])
+    print("{:.2f}".format(giou_))
+
+    diou_ = get_diou(minmax_rect_arr_a[0], minmax_rect_arr_b[0])
+    print("{:.2f}".format(diou_))
