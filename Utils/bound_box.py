@@ -1,4 +1,4 @@
-from Utils.iou import *
+from Loss.iou import *
 
 
 class BoundBox:

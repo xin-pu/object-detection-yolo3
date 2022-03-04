@@ -181,10 +181,6 @@ class Loss(tensorflow.keras.losses.Loss):
                         y_pred.shape[-1] // anchor_shape[0]]
         return tf.reshape(y_pred, target_shape)
 
-    @staticmethod
-    def cal_loss_debug(y_true, y_pred):
-        return kb.sum(kb.abs(y_true - y_pred))
-
     def cal_loss(self, y_true, y_pred, pred_shape):
         target_shape = pred_shape
         anchors_lay = self.pattern_array.index(target_shape[1])
@@ -221,8 +217,8 @@ if __name__ == "__main__":
     model_cfg = ModelConfig(config["model"])
     train_cfg = TrainConfig(config["train"])
 
-    y_true_test = np.ones((4, 52, 52, 3, 25)).astype(np.float32)
-    y_pred_test = np.zeros((4, 52, 52, 75)).astype(np.float32)
+    y_true_test = np.ones((train_cfg.batch_size, 52, 52, 3, 25)).astype(np.float32)
+    y_pred_test = np.zeros((train_cfg.batch_size, 52, 52, 75)).astype(np.float32)
 
     test_loss = Loss(model_cfg.input_size, train_cfg.batch_size,
                      model_cfg.anchor_array, [52, 26, 13]).call(y_true_test, y_pred_test)

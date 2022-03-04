@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-
 import struct
-
 import numpy as np
 
 
@@ -72,4 +69,4 @@ class WeightReader:
 
 
 if __name__ == '__main__':
-    pass
+    WeightReader(r'../../yolov3.weights')

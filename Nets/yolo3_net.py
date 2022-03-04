@@ -31,4 +31,3 @@ if __name__ == '__main__':
     yolo_net = get_yolo3_backend((416, 416), 20, True)
     y = yolo_net(inputs)
     print(y[0].shape, y[1].shape, y[2].shape)
-

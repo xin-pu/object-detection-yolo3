@@ -1,5 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.layers import *
+from tensorflow.keras.models import *
 
 # Darknet53 feature extractor
 from Nets.Layer.convolutional_conv import ConvolutionalConv
@@ -7,7 +8,7 @@ from Nets.Layer.convolutional_five import Convolutional5
 from Nets.Layer.convolutional_unsamling import ConvolutionalUnSampling
 
 
-class HeadNet(tf.keras.Model):
+class HeadNet(Model):
 
     def __init__(self, n_classes=20):
         super(HeadNet, self).__init__(name='')
@@ -80,7 +81,7 @@ if __name__ == '__main__':
     s5 = tf.constant(np.random.randn(1, 13, 13, 1024).astype(np.float32))
 
     headNet = HeadNet()
-    f5, f4, f3 = headNet.call([s3, s4, s5])
+    f5, f4, f3 = headNet([s3, s4, s5])
     print(f5.shape, f4.shape, f3.shape)
 
     for v in headNet.variables:

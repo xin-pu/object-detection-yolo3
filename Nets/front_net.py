@@ -26,7 +26,7 @@ class YoloDetector(object):
         image = np.array(image)
         return self.detect(image, cls_threshold)
 
-    def detect(self, image, cls_threshold=0.5):
+    def detect(self, image, cls_threshold):
         """
         # Args
             image : array, shape of (H, W, 3)
@@ -40,6 +40,7 @@ class YoloDetector(object):
         """
 
         image_h, image_w, _ = image.shape
+
         # 1. Pre process [1,416,416,3]
         new_image = self.pre_process(image)
 
@@ -49,6 +50,7 @@ class YoloDetector(object):
         # 3.Resolve and Get Boxes
         all_boxes = self.post_process(yolo_res, image_h, image_w)
         print(len(all_boxes))
+
         if len(all_boxes) > 0:
             boxes, probs = convert_boxes_to_centroid_boxes(all_boxes)
             boxes = convert_to_minmax(boxes)
@@ -95,8 +97,8 @@ class YoloDetector(object):
         for row in range(n_rows):
             for col in range(n_cols):
                 for b in range(nb_box):
-                    # 1. decode
 
+                    # 1. decode
                     x, y, w, h = self.decode_coordinate(y_pre_one_scale, row, col, b, anchors[b])
                     objectness, classes = self.activate_probs(y_pre_one_scale[row, col, b, IDX_OBJECT_NESS],
                                                               y_pre_one_scale[row, col, b, IDX_CLASS_PROB:],
@@ -109,8 +111,7 @@ class YoloDetector(object):
                     h /= self.image_size
 
                     if objectness > self.obj_thresh:
-                        box = BoundBox(x, y, w, h, objectness, classes)
-                        boxes.append(box)
+                        boxes.append(BoundBox(x, y, w, h, objectness, classes))
 
         return boxes
 
@@ -139,8 +140,10 @@ class YoloDetector(object):
         # 1. sigmoid activation
         objectness_prob = sigmoid(objectness)
         classes_probs = sigmoid(classes)
+
         # 2. conditional probability
         classes_conditional_probs = classes_probs * objectness_prob
+
         # 3. thresholding
         classes_conditional_probs *= objectness_prob > obj_thresh
         return objectness_prob, classes_conditional_probs

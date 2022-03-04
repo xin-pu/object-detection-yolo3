@@ -36,8 +36,7 @@ class BatchGenerator(object):
 
         self.data_length = len(self.annot_filenames)
         self.save_folder = train_configs.save_folder
-
-        self._epoch = 0
+        self.epoch = train_configs.num_epoch
 
     def get_ann_filenames(self):
         return glob.glob(os.path.join(self.annot_folder, "*.xml"))
@@ -80,7 +79,8 @@ class BatchGenerator(object):
                     match_index, match_anchor = self.get_match_anchor_boxes(original_box, self.anchors_boxes)
                     lay_index, box_index = match_index // 3, match_index % 3
 
-                    code_box = self.convert_to_encode_box(original_box, match_anchor, self.pattern_shape[lay_index])
+                    code_box = convert_to_encode_box(self.pattern_shape[lay_index], self.input_size, original_box,
+                                                     match_anchor)
                     self.assign_box(y_outputs, batch_index, lay_index, box_index, code_box, label)
 
                 i = (i + 1) % dataset_len
@@ -98,9 +98,6 @@ get image and update boxes when enable enhance
         img_augmenter = ImageEnhance(self.input_size, self.input_size, self.enhance)
         img, boxes = img_augmenter.get_image(image_file, boxes)
         return img / 255., boxes
-
-    def convert_to_encode_box(self, original_min_max_box, match_anchor_box, patter_shape):
-        return convert_to_encode_box(patter_shape, self.input_size, original_min_max_box, match_anchor_box)
 
     @staticmethod
     def get_annotation(ann_filename, image_dire, labels):
@@ -139,6 +136,7 @@ if __name__ == '__main__':
     train_cfg = TrainConfig(config["train"])
 
     train_generator = BatchGenerator(model_cfg, train_cfg, True)
+    print(train_generator)
     # x, y = train_generator.get_next_batch()
     #
     # print(y[0].shape, y[1].shape, y[2].shape)

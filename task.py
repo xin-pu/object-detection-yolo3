@@ -1,11 +1,10 @@
-import json
 import os
 from enum import Enum
 
 from Config.train_config import *
 from DataSet.batch_generator import BatchGenerator
 from Nets.front_net import YoloDetector
-from Nets.weight_reader import WeightReader
+from Nets.DarkNet.weight_reader import WeightReader
 from Nets.yolo3_net import get_yolo3_backend
 from Utils.utils import download_if_not_exists
 
@@ -82,7 +81,6 @@ class TaskParser(object):
 
 
 if __name__ == "__main__":
-    import tensorflow as tf
     task = TaskParser("config/pascal_voc.json")
     print(task.train_cfg.__dict__)
     print(task.model_cfg.__dict__)
