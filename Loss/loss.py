@@ -1,17 +1,25 @@
 import tensorflow as tf
 import tensorflow.keras.losses
-from tensorflow.keras import backend as kb
 
 
-# -----------------------------------------------------------#
-#     pattern should be arrayed as [grid_h,grid_w]
-#     return shape is [batch_size,grid_h,grid_w,n_box,2], 2 means: x,y
-# -----------------------------------------------------------#
-def create_mesh_xy(batch_size, grid_h, grid_w, n_box):
-    mesh_x = tf.cast(tf.reshape(tf.tile(tf.range(grid_h), [grid_w]), (1, grid_h, grid_w, 1, 1)), tf.float32)
+def create_grid_xy_offset(batch_size, grid_h, grid_w, n_box):
+    """
+
+    :param batch_size: 4
+    :param grid_h: 13
+    :param grid_w: 13
+    :param n_box: 3
+    :return: return shape is [batch_size,grid_h,grid_w,n_box,2], 2 means: x offset,y offset
+    """
+    basic = tf.reshape(tf.tile(tf.range(grid_h), [grid_w]), (1, grid_h, grid_w, 1, 1))
+
+    mesh_x = tf.cast(basic, tf.float32)
     mesh_y = tf.transpose(mesh_x, (0, 2, 1, 3, 4))
-    mesh_xy = tf.tile(tf.concat([mesh_x, mesh_y], -1), [batch_size, 1, 1, n_box, 1])
-    return mesh_xy
+
+    mesh_xy = tf.concat([mesh_x, mesh_y], -1)
+
+    mesh_xy_nbox = tf.tile(mesh_xy, [batch_size, 1, 1, n_box, 1])
+    return mesh_xy_nbox
 
 
 def create_mesh_anchor(anchors, pred_shape):
@@ -29,17 +37,14 @@ def create_mesh_anchor(anchors, pred_shape):
     return mesh_anchor
 
 
-# -----------------------------------------------------------#
-#     Adjust_pred_tensor
-#     Convert final layer features to bounding box parameters.
-#     Task 13*13*3*(20+5) as example   20 =len(classes), 5 = 4 box +1 prob
-# -----------------------------------------------------------#
-def adjust_pred_tensor(y_pred):
-    batch_size = y_pred.shape[0]
-    grid_offset = create_mesh_xy(batch_size, *y_pred.shape[1:4])
+def adjust_pred_tensor(y_pred, input_shape):
+    xy = y_pred[..., 0:2]
+    wh = y_pred[..., 2:4]
 
-    pred_xy = tf.sigmoid(y_pred[..., :2]) + grid_offset  # sigma(t_xy) + c_xy
-    pred_wh = y_pred[..., 2:4]  # t_wh
+    grid_xy_offset = create_grid_xy_offset(*input_shape[0:4])
+
+    pred_xy = grid_xy_offset + tf.sigmoid(xy)  # sigmoid(t_x) + c_x and sigmoid(t_y) + c_y
+    pred_wh = wh
 
     pred_conf = tf.sigmoid(y_pred[..., 4])  # adjust confidence
     pred_classes = y_pred[..., 5:]
@@ -58,11 +63,11 @@ def conf_delta_tensor(y_true, y_pred, pred_shape, anchors, ignore_thresh):
     pred_box_xy, pred_box_wh, pred_box_conf = y_pred[..., :2], y_pred[..., 2:4], y_pred[..., 4]
 
     anchor_grid = create_mesh_anchor(anchors, pred_shape)
+    anchors_ = tf.reshape(anchors, shape=[1, 1, 1, 3, 2])
+
     true_wh = y_true[:, :, :, :, 2:4]
     true_wh = anchor_grid * tf.exp(true_wh)
     true_wh = true_wh * tf.expand_dims(y_true[:, :, :, :, 4], 4)
-
-    anchors_ = tf.reshape(anchors, shape=[1, 1, 1, 3, 2])
 
     # then, ignore the boxes which have good overlap with some true box
     true_xy = y_true[..., 0:2]
@@ -95,7 +100,7 @@ def conf_delta_tensor(y_true, y_pred, pred_shape, anchors, ignore_thresh):
 
 
 def wh_scale_tensor(true_box_wh, anchors, image_size):
-    image_size_ = tf.reshape(tf.cast(image_size, tf.float32), [1, 1, 1, 1, 2])
+    image_size_ = tf.reshape(tf.cast([image_size, image_size], tf.float32), [1, 1, 1, 1, 2])
     anchors_ = tf.reshape(anchors, shape=[1, 1, 1, 3, 2])
 
     # [0, 1]-scaled width/height
@@ -147,10 +152,10 @@ class Loss(tensorflow.keras.losses.Loss):
         self.pattern_array = pattern_array
         self.ignore_thresh = ignore_thresh
         self.grid_scale = grid_scale
-        self.obj_scale = obj_scale
-        self.noobj_scale = noobj_scale
-        self.xywh_scale = xywh_scale
-        self.class_scale = class_scale
+        self.scale_object = obj_scale
+        self.scale_noobj = noobj_scale
+        self.scale_coord = xywh_scale
+        self.scale_class = class_scale
         super().__init__(name=name)
 
     @tf.autograph.experimental.do_not_convert
@@ -175,34 +180,48 @@ class Loss(tensorflow.keras.losses.Loss):
         return loss
 
     def reshape_pred(self, y_pred):
+        """
+        讲预测结果张量调整到该Anchor Lay下 五维张量
+        reshape y_preds from [b,13,13,anchors*25] to [b,13,13,anchors,25]
+        :param y_pred:
+        :return:
+        """
         anchor_shape = self.anchor_array.shape
         patter_shape = y_pred.shape[1:3]
         target_shape = [self.batch_size, patter_shape[0], patter_shape[1], anchor_shape[0],
                         y_pred.shape[-1] // anchor_shape[0]]
         return tf.reshape(y_pred, target_shape)
 
-    def cal_loss(self, y_true, y_pred, pred_shape):
-        target_shape = pred_shape
-        anchors_lay = self.pattern_array.index(target_shape[1])
+    def cal_loss(self, y_true, y_pred, input_shape):
+        """
+        计算预测框 于 真实框 的损失
+        :param y_true: tensor with shape [batch size, 13, 13, 3, 25]
+        :param y_pred: tensor with shape [batch size, 13, 13, 3, 25]
+        :param input_shape: [batch size, 13, 13, 3, 25]
+        :return: loss of yolo detect object
+        """
+
+        anchors_lay = self.pattern_array.index(input_shape[1])
         anchors_current = tf.constant(self.anchor_array[anchors_lay], dtype=float)
         object_mask = tf.expand_dims(y_true[..., 4], 4)  # 真实值中有物体的矩阵
 
         # 2. Adjust prediction (bxy, twh)
-        preds = adjust_pred_tensor(y_pred)
+        preds = adjust_pred_tensor(y_pred, input_shape)
 
         # 3. Adjust ground truth (bxy, twh)
+        # shape: [batch, 13, 13, 3, 6] 6 means: x,y,w,h,confidence,true class
         trues = adjust_true_tensor(y_true)
 
         # 4. conf_delta tensor
-        conf_delta = conf_delta_tensor(y_true, preds, pred_shape, anchors_current, self.ignore_thresh)
+        conf_delta = conf_delta_tensor(y_true, preds, input_shape, anchors_current, self.ignore_thresh)
 
         # 5. loss tensor
         wh_scale = wh_scale_tensor(trues[..., 2:4], anchors_current, self.image_size)
 
-        loss_box = loss_coord_tensor(object_mask, preds[..., :4], trues[..., :4], wh_scale, self.xywh_scale)
-        loss_conf = loss_conf_tensor(object_mask, preds[..., 4], trues[..., 4], self.obj_scale, self.noobj_scale,
+        loss_box = loss_coord_tensor(object_mask, preds[..., :4], trues[..., :4], wh_scale, self.scale_coord)
+        loss_conf = loss_conf_tensor(object_mask, preds[..., 4], trues[..., 4], self.scale_object, self.scale_noobj,
                                      conf_delta)
-        loss_class = loss_class_tensor(object_mask, preds[..., 5:], trues[..., 5], self.class_scale)
+        loss_class = loss_class_tensor(object_mask, preds[..., 5:], trues[..., 5], self.scale_class)
         loss = loss_box + loss_conf + loss_class
         return loss
 
@@ -217,9 +236,10 @@ if __name__ == "__main__":
     model_cfg = ModelConfig(config["model"])
     train_cfg = TrainConfig(config["train"])
 
-    y_true_test = np.ones((train_cfg.batch_size, 52, 52, 3, 25)).astype(np.float32)
-    y_pred_test = np.zeros((train_cfg.batch_size, 52, 52, 75)).astype(np.float32)
+    y_true_test = np.ones((train_cfg.batch_size, 1, 1, 3, 25)).astype(np.float32)
+    y_pred_test = np.zeros((train_cfg.batch_size, 1, 1, 75)).astype(np.float32)
 
     test_loss = Loss(model_cfg.input_size, train_cfg.batch_size,
-                     model_cfg.anchor_array, [52, 26, 13]).call(y_true_test, y_pred_test)
+                     model_cfg.anchor_array, [1, 2, 3]).call(y_true_test, y_pred_test)
     print("Sum Loss:\t{}".format(test_loss))
+    #
