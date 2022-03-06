@@ -31,27 +31,34 @@ create anchor_boxes by array
 def convert_to_encode_box(pattern_shape, input_size, original_min_max_box, match_anchor_box):
     """
 convert to box used for prediction
+b_x = sigma(t_x) + c_x
+b_y = sigma(t_y) + c_y
+b_w = p_w * e^t_w   => t_w = ln(b_w / p_w)
+b_h = p_h * e^t_h   => t_h = ln(b_h / p_h)
     :param pattern_shape: 52 or 26 or 13
     :param original_min_max_box: min,max box
     :param match_anchor_box: match centroid box
     :param input_size: 416
-    :return:
+    :return:[tx,ty,tw,th]
     """
-    x1, y1, x2, y2 = original_min_max_box
-    _, _, anchor_w, anchor_h = match_anchor_box
-
-    # determine the yolo to be responsible for this bounding box
     rate_w = rate_h = float(pattern_shape) / input_size
+    _, _, p_w, p_h = match_anchor_box
+    b_x1, b_y1, b_x2, b_y2 = original_min_max_box
+
+    # convert to centroid  box
+    b_x, b_y = (b_x1 + b_x2) / 2.0, (b_y1 + b_y2) / 2.0
+    b_w, b_h = max((b_x2 - b_x1), 1), max((b_y2 - b_y1), 1)
+    # determine the yolo to be responsible for this bounding box
 
     # determine the position of the bounding box on the grid
-    x_center = (x1 + x2) / 2.0 * rate_w  # sigma(t_x) + c_x
-    y_center = (y1 + y2) / 2.0 * rate_h  # sigma(t_y) + c_y
+    x_center = b_x * rate_w  # sigma(t_x) + c_x
+    y_center = b_y * rate_h  # sigma(t_y) + c_y
 
     # determine the sizes of the bounding box
-    w = np.log(max((x2 - x1), 1) / float(anchor_w))  # t_w
-    h = np.log(max((y2 - y1), 1) / float(anchor_h))  # t_h
+    t_w = np.log(1.0 * b_w / p_w)
+    t_h = np.log(1.0 * b_h / p_h)
 
-    return [x_center, y_center, w, h]
+    return [x_center, y_center, t_w, t_h]
 
 
 if __name__ == "__main__":
@@ -60,3 +67,5 @@ if __name__ == "__main__":
     print(create_anchor_boxes(test_anchors))
 
     print(convert_to_encode_box(52, 416, [2, 13, 310, 416], [0, 0, 373, 326]))
+
+    print(int(np.floor(19.5)))

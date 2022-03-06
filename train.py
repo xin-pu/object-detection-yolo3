@@ -1,8 +1,5 @@
-import shutil
-
-from tensorflow.python.keras.callbacks import *
 from tensorflow.keras.optimizers import *
-import tensorflow as tf
+from tensorflow.python.keras.callbacks import *
 
 from Loss.loss import Loss
 from task import TaskParser, ModelInit

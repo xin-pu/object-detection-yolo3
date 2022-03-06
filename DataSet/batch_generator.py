@@ -1,11 +1,11 @@
 import glob
 import os
-from Utils.bound_box import *
-from Utils.convert import *
 
+from Config.train_config import *
 from DataSet.image_enhance import ImageEnhance
 from DataSet.pascalvoc_parser import PascalVocParser
-from Config.train_config import *
+from Utils.bound_box import *
+from Utils.convert import *
 
 
 class BatchGenerator(object):
@@ -86,11 +86,11 @@ class BatchGenerator(object):
                 i = (i + 1) % dataset_len
 
             outputs = [y_outputs[0], y_outputs[1], y_outputs[2]]
-            yield x_inputs, outputs
+            return x_inputs, outputs
 
     def get_image_with_enhance(self, image_file, boxes):
         """
-get image and update boxes when enable enhance
+        get image and update boxes when enable enhance
         :param image_file:
         :param boxes:
         :return:
@@ -113,7 +113,6 @@ get image and update boxes when enable enhance
 
     @staticmethod
     def assign_box(yolo_true_output, batch_index, lay_index, box_index, box, label):
-
         center_x, center_y, _, _ = box
 
         # determine the location of the cell responsible for this object
@@ -124,7 +123,6 @@ get image and update boxes when enable enhance
         yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 0:4] = box
         yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 4] = 1.
         yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 5 + label] = 1
-        # print(yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, :])
 
 
 if __name__ == '__main__':
@@ -137,6 +135,6 @@ if __name__ == '__main__':
 
     train_generator = BatchGenerator(model_cfg, train_cfg, True)
     print(train_generator)
-    # x, y = train_generator.get_next_batch()
+    x, y = train_generator.get_next_batch()
     #
     # print(y[0].shape, y[1].shape, y[2].shape)

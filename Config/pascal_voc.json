@@ -56,7 +56,7 @@
     "valid_image_folder": "F:\\PASCALVOC\\VOC2007_Val\\JPEGImages",
     "valid_annot_folder": "F:\\PASCALVOC\\VOC2007_Val\\Annotations",
     "valid_size": 200,
-    "batch_size": 8,
+    "batch_size": 2,
     "learning_rate": 1e-4,
     "save_folder": "F:\\PASCALVOC\\train_output\\pascal.h5",
     "enhance": false,

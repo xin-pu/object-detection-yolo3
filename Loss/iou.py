@@ -1,7 +1,8 @@
 """
 This is a module for calculate iou
 """
-import math
+
+import tensorflow as tf
 
 from Utils.convert import *
 
@@ -62,6 +63,44 @@ def get_iou(min_max_rect_truth, min_max_rect_prediction):
     return area_inter / area_union
 
 
+def get_tf_iou(boxes_1, boxes_2):
+    """
+    calculate regression loss using iou
+    :param boxes_1: boxes_1 shape is [x, y, w, h]
+    :param boxes_2: boxes_2 shape is [x, y, w, h]
+    :return:
+    """
+    # transform [x, y, w, h] to [x_min, y_min, x_max, y_max]
+    boxes_1 = tf.concat([boxes_1[..., :2] - boxes_1[..., 2:] * 0.5,
+                         boxes_1[..., :2] + boxes_1[..., 2:] * 0.5], axis=-1)
+    boxes_2 = tf.concat([boxes_2[..., :2] - boxes_2[..., 2:] * 0.5,
+                         boxes_2[..., :2] + boxes_2[..., 2:] * 0.5], axis=-1)
+    boxes_1 = tf.concat([tf.minimum(boxes_1[..., :2], boxes_1[..., 2:]),
+                         tf.maximum(boxes_1[..., :2], boxes_1[..., 2:])], axis=-1)
+    boxes_2 = tf.concat([tf.minimum(boxes_2[..., :2], boxes_2[..., 2:]),
+                         tf.maximum(boxes_2[..., :2], boxes_2[..., 2:])], axis=-1)
+
+    # calculate area of boxes_1 boxes_2
+    boxes_1_area = (boxes_1[..., 2] - boxes_1[..., 0]) * (boxes_1[..., 3] - boxes_1[..., 1])
+    boxes_2_area = (boxes_2[..., 2] - boxes_2[..., 0]) * (boxes_2[..., 3] - boxes_2[..., 1])
+
+    # calculate the two corners of the intersection
+    left_up = tf.maximum(boxes_1[..., :2], boxes_2[..., :2])
+    right_down = tf.minimum(boxes_1[..., 2:], boxes_2[..., 2:])
+
+    # calculate area of intersection
+    inter_section = tf.maximum(right_down - left_up, 0.0)
+    inter_area = inter_section[..., 0] * inter_section[..., 1]
+
+    # calculate union area
+    union_area = boxes_1_area + boxes_2_area - inter_area
+
+    # calculate iou add epsilon in denominator to avoid dividing by 0
+    iou = inter_area / (union_area + tf.keras.backend.epsilon())
+
+    return iou
+
+
 # 在IOU基础上优化两个框不想交的情况
 def get_giou(min_max_rect_truth, min_max_rect_prediction):
     # get area of predict bounding box
@@ -111,8 +150,8 @@ if __name__ == "__main__":
     minmax_rect_arr_a = np.array([[50., 50., 200., 200.]])
     minmax_rect_arr_b = np.array([[80., 160., 220., 220.]])
 
-    inter_area = get_inter_area(minmax_rect_arr_a[0], minmax_rect_arr_b[0])
-    print(inter_area)
+    test_inter_area = get_inter_area(minmax_rect_arr_a[0], minmax_rect_arr_b[0])
+    print(test_inter_area)
 
     enclosing_area = get_enclosing_area(minmax_rect_arr_a[0], minmax_rect_arr_b[0])
     print(enclosing_area)
