@@ -69,8 +69,26 @@ class LossYolo3V2(Loss):
     def call(self, y_true, y_pred):
         """
         cal loss
-        :param y_pred: [b,13,13,anchors*25]
-        :param y_true: [b,13,13,anchors,25]
+        :param y_pred:  [b,13,13,anchors*25]
+                        [t_x, t_y, t_w, t_h, t_confidence，t_class * 20]
+                        b_x = sigmoid(t_x) + c_x
+                        b_y = sigmoid(t_y) + c_y
+                        b_w = e^t_w * anchor_w
+                        b_h = e^t_h * anchor_h
+
+                        t_w = ln(b_w / anchor_w)
+                        t_h = ln(b_h / anchor_h)
+
+        :param y_true:  [b,13,13,anchors,25]
+                        [b_x, b_y, nor_w, nor_h, 1/0,            class * 20]
+                        b_w = e^nor_w * anchor_w
+                        b_h = e^nor_h * anchor_h
+
+                        nor_w = ln(b_w / anchor_w)
+                        nor_h = ln(b_h / anchor_h)
+
+
+
         :return: loss
         """
 
@@ -82,22 +100,30 @@ class LossYolo3V2(Loss):
         anchors_lay = self.pattern_array.index(shape_stand[1])
         anchors_current = tf.constant(self.anchor_array[anchors_lay], dtype=float)
 
-        # Step 1 get object mask from true
-        object_mask = tf.expand_dims(y_true[..., 4], 4)
-
-        # Step 2 reshape y_preds from [b,13,13,anchors*25] to [b,13,13,anchors,25]
+        # Step 1 reshape y_preds from [b,13,13,anchors*25] to [b,13,13,anchors,25]
         y_pred = tf.reshape(y_pred, shape_stand)
 
+        # Step 2 get object mask from true
+        object_mask = tf.expand_dims(y_true[..., 4], 4)
+
+        # Step 3 convert pred coord to bounding box coord
+        pred_b_xy = tf.sigmoid(y_pred[..., 0:2]) + create_grid_xy_offset(*shape_stand[0:4])
+        pred_b_wh = tf.exp(y_pred[..., 2:4]) * create_mesh_anchor(anchors_current, shape_stand)
+
+        # Step 3 convert true coord to bounding box coord
+        true_b_xy = y_true[..., 0:2]
+        true_b_wh = tf.exp(y_true[..., 2:4]) * anchors_current
+
         # Step 3 adjust pred tensor to [bx, by, bw, bh] and get ignore mask by iou
-        y_pred_coord = self.convert_coord_to_bbox_for_pred(y_pred[..., 0:4], anchors_current, shape_stand)
-        y_true_coord = self.convert_coord_to_bbox_for_true(y_true[..., 0:4], anchors_current, shape_stand)
-        s = iou_module.get_tf_diou(y_true_coord, y_pred_coord)
+        pred_b_coord = tf.concat([pred_b_xy, pred_b_wh])
+        true_b_coord = tf.concat([true_b_xy, true_b_wh])
+        s = iou_module.get_tf_diou(pred_b_coord, true_b_coord)
         ignore_mask = tf.expand_dims(tf.cast(s < self.ignore_thresh, tf.float32), axis=-1)
 
         # Step 4 cal 3 part loss
         wh_scale = self.wh_scale_tensor(y_true[..., 2:4], anchors_current, self.image_size)
         loss_coord = self.get_coordinate_loss(y_true[..., 0:4],
-                                              y_pred[..., 0:4],
+                                              tf.concat(pred_b_xy, y_pred[..., 2:4]),
                                               object_mask,
                                               wh_scale,
                                               self.lambda_coord_xy,
