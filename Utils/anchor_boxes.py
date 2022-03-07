@@ -41,9 +41,9 @@ b_h = p_h * e^t_h   => t_h = ln(b_h / p_h)
     :param input_size: 416
     :return:[tx,ty,tw,th]
     """
-    rate_w = rate_h = float(pattern_shape) / input_size
-    _, _, p_w, p_h = match_anchor_box
+    grid_w = grid_h = 1. * input_size / float(pattern_shape)
     b_x1, b_y1, b_x2, b_y2 = original_min_max_box
+    _, _, p_w, p_h = match_anchor_box
 
     # convert to centroid  box
     b_x, b_y = (b_x1 + b_x2) / 2.0, (b_y1 + b_y2) / 2.0
@@ -51,8 +51,8 @@ b_h = p_h * e^t_h   => t_h = ln(b_h / p_h)
     # determine the yolo to be responsible for this bounding box
 
     # determine the position of the bounding box on the grid
-    x_center = b_x * rate_w  # sigma(t_x) + c_x
-    y_center = b_y * rate_h  # sigma(t_y) + c_y
+    x_center = b_x / grid_w   # sigma(t_x) + c_x
+    y_center = b_y / grid_h   # sigma(t_y) + c_y
 
     # determine the sizes of the bounding box
     t_w = np.log(1.0 * b_w / p_w)

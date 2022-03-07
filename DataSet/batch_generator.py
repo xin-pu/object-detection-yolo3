@@ -179,4 +179,4 @@ if __name__ == '__main__':
     train_generator = BatchGenerator(model_cfg, train_cfg, True)
 
     x, y = train_generator.return_next_batch()
-    print(y[0].shape)
+    print(y[1][0, 0, 0, :])

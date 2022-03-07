@@ -2,6 +2,7 @@ from tensorflow.keras.optimizers import *
 from tensorflow.python.keras.callbacks import *
 
 from Loss.lossyolo3v2 import LossYolo3V2
+from Loss.lossyolo3v1 import LossYolo3V1
 from task import TaskParser, ModelInit
 
 if __name__ == "__main__":
@@ -43,7 +44,7 @@ if __name__ == "__main__":
     current_net_size = (train_generator.input_size, train_generator.input_size)
 
     model.compile(optimizer=Adam(learning_rate=train_generator.learning_rate, clipnorm=0.001),
-                  loss=LossYolo3V2(current_net_size,
+                  loss=LossYolo3V1(current_net_size,
                                    train_generator.batch_size,
                                    train_generator.anchors_array,
                                    train_generator.pattern_shape,

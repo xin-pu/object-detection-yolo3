@@ -105,13 +105,13 @@ class YoloDetector(object):
                                                               self.obj_thresh)
 
                     # 2. scale normalize
-                    x /= n_cols
-                    y /= n_rows
-                    w /= self.image_size
-                    h /= self.image_size
+                    x_n = x / n_cols
+                    y_n = y / n_rows
+                    w_n = w / self.image_size
+                    h_n = h / self.image_size
 
                     if objectness > self.obj_thresh:
-                        boxes.append(BoundBox(x, y, w, h, objectness, classes))
+                        boxes.append(BoundBox(x_n, y_n, w_n, h_n, objectness, classes))
 
         return boxes
 
