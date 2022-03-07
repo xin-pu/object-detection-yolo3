@@ -1,4 +1,7 @@
-from Loss.iou import *
+import tensorflow as tf
+from tensorflow.keras.losses import Loss
+
+import Utils.iou as iou_module
 
 
 def create_grid_xy_offset(batch_size, grid_h, grid_w, n_box):
@@ -35,7 +38,7 @@ def create_mesh_anchor(anchors, pred_shape):
     return mesh_anchor
 
 
-class LossYolo3(tf.keras.losses.Loss):
+class LossYolo3V2(Loss):
     def __init__(self,
                  image_size,
                  batch_size,
@@ -88,8 +91,8 @@ class LossYolo3(tf.keras.losses.Loss):
         # Step 3 adjust pred tensor to [bx, by, bw, bh] and get ignore mask by iou
         y_pred_coord = self.convert_coord_to_bbox(y_pred[..., 0:4], anchors_current, shape_stand)
         y_true_coord = self.convert_coord_to_bbox(y_true[..., 0:4], anchors_current, shape_stand)
-        iou = get_tf_iou(y_true_coord, y_pred_coord)
-        ignore_mask = tf.cast(iou < self.ignore_thresh, tf.float32)
+        s = iou_module.get_tf_diou(y_true_coord, y_pred_coord)
+        ignore_mask = tf.cast(s < self.ignore_thresh, tf.float32)
 
         # Step 4 cal 3 part loss
         loss_coord = self.get_coordinate_loss(y_true[..., 0:4],
@@ -97,7 +100,6 @@ class LossYolo3(tf.keras.losses.Loss):
                                               object_mask,
                                               self.lambda_coord_xy,
                                               self.lambda_coord_wh)
-        print("loss_box:\t{}".format(loss_coord))
 
         loss_confidence = self.get_confidence_loss(y_true[..., 4],
                                                    y_pred[..., 4],
@@ -105,14 +107,12 @@ class LossYolo3(tf.keras.losses.Loss):
                                                    ignore_mask,
                                                    self.lambda_object,
                                                    self.lambda_no_object)
-        print("loss_confidence:\t{}".format(loss_confidence))
 
         loss_class = self.get_class_loss_original(y_true[..., 5:],
-                                         y_pred[..., 5:],
-                                         object_mask)
-        print("loss_class:\t{}".format(loss_class))
+                                                  y_pred[..., 5:],
+                                                  object_mask)
 
-        return loss_class
+        return loss_coord + loss_confidence + loss_class
 
     @staticmethod
     def convert_coord_to_bbox(coord, anchors, input_shape):
@@ -133,9 +133,9 @@ class LossYolo3(tf.keras.losses.Loss):
             lambda_object=5,
             lambda_no_object=1):
         confidence_mask_ = tf.squeeze(object_mask, axis=-1)
-        confidence_loss = lambda_object * confidence_mask_ * tf.square(confidence_pred - confidence_truth) + \
+        confidence_loss = lambda_object * confidence_mask_ * (confidence_pred - confidence_truth) + \
                           lambda_no_object * (1 - confidence_mask_) * ignore_mask * confidence_pred
-        return tf.reduce_sum(confidence_loss)
+        return tf.reduce_sum(tf.square(confidence_loss), axis=[1, 2, 3])
 
     @staticmethod
     def get_coordinate_loss(coordinate_truth,
@@ -152,10 +152,9 @@ class LossYolo3(tf.keras.losses.Loss):
         @param lambda_wh:
         @return:
         """
-        coord_mask = tf.expand_dims(object_mask, 4)
-        coord_delta = coord_mask * tf.square(coordinate_pred[..., 0:4] - coordinate_truth[..., 0:4])
-        xy_delta = lambda_xy * tf.reduce_sum(coord_delta[..., 0:2])
-        wh_delta = lambda_wh * tf.reduce_sum(coord_delta[..., 2:4])
+        coord_delta = object_mask * tf.square(coordinate_pred[..., 0:4] - coordinate_truth[..., 0:4])
+        xy_delta = lambda_xy * tf.reduce_sum(coord_delta[..., 0:2], [1, 2, 3, 4])
+        wh_delta = lambda_wh * tf.reduce_sum(coord_delta[..., 2:4], [1, 2, 3, 4])
         return xy_delta + wh_delta
 
     @staticmethod
@@ -222,22 +221,24 @@ class LossYolo3(tf.keras.losses.Loss):
 
 
 if __name__ == "__main__":
-    from DataSet.batch_generator import *
-
-    config_file = r"..\config\pascal_voc.json"
-    with open(config_file) as data_file:
-        config = json.load(data_file)
-
-    model_cfg = ModelConfig(config["model"])
-    train_cfg = TrainConfig(config["train"])
-
-    train_generator = BatchGenerator(model_cfg, train_cfg, True)
-    print(train_generator)
-    x, y = train_generator.get_next_batch()
-    print(x,y)
-    y_true_test = np.ones((train_cfg.batch_size, 1, 1, 3, 25)).astype(np.float32)
-    y_pred_test = np.ones((train_cfg.batch_size, 1, 1, 75)).astype(np.float32)
-
-    test_loss = LossYolo3(model_cfg.input_size, train_cfg.batch_size,
-                          model_cfg.anchor_array, [1, 2, 3]).call(y_true_test, y_pred_test)
-    print("Sum Loss:\t{}".format(test_loss))
+    pass
+    # from DataSet.batch_generator import *
+    #
+    # config_file = r"..\config\pascal_voc.json"
+    # with open(config_file) as data_file:
+    #     config = json.load(data_file)
+    #
+    # model_cfg = ModelConfig(config["model"])
+    # train_cfg = TrainConfig(config["train"])
+    #
+    # train_generator = BatchGenerator(model_cfg, train_cfg, True)
+    #
+    # _, y_true = train_generator.return_next_batch()
+    # single_y_true = y_true[0]
+    # shape = single_y_true.shape
+    # end_dims = shape[-1] * shape[-2]
+    # new_shape = [shape[0], shape[1], shape[2], end_dims]
+    # y_pred = single_y_true.reshape(new_shape)
+    # test_loss = LossYolo3V2(model_cfg.input_size, train_cfg.batch_size,
+    #                         model_cfg.anchor_array, train_generator.pattern_shape).call(single_y_true, y_pred)
+    # print("Sum Loss:\t{}".format(test_loss))

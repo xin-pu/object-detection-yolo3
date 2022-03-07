@@ -47,7 +47,7 @@ class BatchGenerator(object):
             info += "{}:\t{}\r\n".format(key, value)
         return info
 
-    def get_next_batch(self):
+    def yield_next_batch(self):
         """
         get x_input (x image) and y_outputs (y true)
         """
@@ -80,6 +80,49 @@ class BatchGenerator(object):
                     lay_index, box_index = match_index // 3, match_index % 3
 
                     code_box = convert_to_encode_box(self.pattern_shape[lay_index], self.input_size, original_box,
+                                                     match_anchor)
+                    self.assign_box(y_outputs, batch_index, lay_index, box_index, code_box, label)
+
+                i = (i + 1) % dataset_len
+
+            outputs = [y_outputs[0], y_outputs[1], y_outputs[2]]
+            yield x_inputs, outputs
+
+    def return_next_batch(self):
+        """
+        get x_input (x image) and y_outputs (y true)
+        """
+        dataset_len = len(self.annot_filenames)
+        i = 0
+        while True:
+            # x_inputs shape: [n,416,416,3]
+            x_inputs = np.zeros((self.batch_size, self.input_size, self.input_size, 3))
+            # y_outputs shape: [n,52,52,3,25],[n,26,26,3,25],,[n,13,13,3,25]
+            y_outputs = [
+                np.zeros((self.batch_size, self.pattern_shape[i], self.pattern_shape[i], 3,
+                          5 + self.classes)).astype(
+                    np.float32) for i in range(3)]
+
+            # insert batch size of datas to x and y
+            for batch_index in range(self.batch_size):
+                # 随机打乱标签文件名列表
+                if i == 0:
+                    np.random.shuffle(self.annot_filenames)
+
+                # step 1: initial annotation
+                annotation = self.get_annotation(self.annot_filenames[i], self.img_dir, self.label_names)
+                image_file, boxes, labels_code = annotation.image_filename, annotation.boxes, annotation.labels_code
+
+                # step 2: initial x_inputs and update boxes
+                x_inputs[batch_index, ...], boxes = self.get_image_with_enhance(image_file, boxes)
+
+                # step 3: initial y_inputs
+                for original_box, label in zip(boxes, labels_code):
+                    match_index, match_anchor = self.get_match_anchor_boxes(original_box, self.anchors_boxes)
+                    lay_index, box_index = match_index // 3, match_index % 3
+
+                    code_box = convert_to_encode_box(self.pattern_shape[lay_index], self.input_size,
+                                                     original_box,
                                                      match_anchor)
                     self.assign_box(y_outputs, batch_index, lay_index, box_index, code_box, label)
 
@@ -134,7 +177,6 @@ if __name__ == '__main__':
     train_cfg = TrainConfig(config["train"])
 
     train_generator = BatchGenerator(model_cfg, train_cfg, True)
-    print(train_generator)
-    x, y = train_generator.get_next_batch()
-    #
-    # print(y[0].shape, y[1].shape, y[2].shape)
+
+    x, y = train_generator.return_next_batch()
+    print(y[0].shape)

@@ -1,17 +1,17 @@
 from tensorflow.keras.optimizers import *
 from tensorflow.python.keras.callbacks import *
 
-from Loss.loss import Loss
+from Loss.lossyolo3v2 import LossYolo3V2
 from task import TaskParser, ModelInit
 
 if __name__ == "__main__":
-    task_parser = TaskParser(r'config\pascal_voc.json')
+    task_parser = TaskParser(r'config\raccoon.json')
 
     # 1. create generator
     train_generator, valid_generator = task_parser.create_generator()
 
     # Create Mode
-    model = task_parser.create_model(model_init=ModelInit.pretrain)
+    model = task_parser.create_model(model_init=ModelInit.random)
 
     boardFolder = "./TensorBoard"
     tensorboard_callback = TensorBoard(boardFolder, histogram_freq=1)
@@ -38,23 +38,23 @@ if __name__ == "__main__":
 
     csv_logger = CSVLogger('log.csv', append=False)
 
+    call_backs = [checkpoint, reduce_lr, early_stopping, csv_logger]
+
     current_net_size = (train_generator.input_size, train_generator.input_size)
 
-    loss_bin = Loss(current_net_size,
-                    train_generator.batch_size,
-                    train_generator.anchors_array,
-                    train_generator.pattern_shape,
-                    class_scale=0 if train_generator.classes == 1 else 1)
-
     model.compile(optimizer=Adam(learning_rate=train_generator.learning_rate, clipnorm=0.001),
-                  loss=loss_bin)
+                  loss=LossYolo3V2(current_net_size,
+                                   train_generator.batch_size,
+                                   train_generator.anchors_array,
+                                   train_generator.pattern_shape,
+                                   class_scale=0 if train_generator.classes == 1 else 1))
 
-    model.fit(train_generator.get_next_batch(),
+    model.fit(train_generator.yield_next_batch(),
               steps_per_epoch=train_generator.steps_per_epoch,
-              validation_data=valid_generator.get_next_batch(),
+              validation_data=valid_generator.yield_next_batch(),
               validation_steps=valid_generator.steps_per_epoch,
               epochs=train_generator.epoch,
-              callbacks=[checkpoint, reduce_lr, early_stopping, csv_logger],
+              callbacks=call_backs,
               workers=1,
               max_queue_size=8,
-              initial_epoch=29)
+              initial_epoch=0)

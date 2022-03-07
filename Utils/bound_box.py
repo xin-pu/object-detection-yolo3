@@ -1,4 +1,4 @@
-from Loss.iou import *
+from Utils.iou import *
 
 
 class BoundBox:
@@ -28,7 +28,7 @@ Initial Bound Box with centroid rect: x, y, w ,h
     def get_iou_with_bound_box(self, bound_box):
         b1 = self.as_centroid_rect()
         b2 = bound_box.as_centroid_rect()
-        return get_iou_from_centroid_rect(b1, b2)
+        return get_iou(b1, b2)
 
     def get_match_bound_box(self, bound_boxes):
         match_index = -1

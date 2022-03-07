@@ -1,5 +1,5 @@
 import tensorflow as tf
-import tensorflow.keras.losses
+from tensorflow.keras.losses import Loss
 
 
 def create_grid_xy_offset(batch_size, grid_h, grid_w, n_box):
@@ -100,7 +100,7 @@ def conf_delta_tensor(y_true, y_pred, pred_shape, anchors, ignore_thresh):
 
 
 def wh_scale_tensor(true_box_wh, anchors, image_size):
-    image_size_ = tf.reshape(tf.cast([image_size, image_size], tf.float32), [1, 1, 1, 1, 2])
+    image_size_ = tf.reshape(tf.cast(image_size, tf.float32), [1, 1, 1, 1, 2])
     anchors_ = tf.reshape(anchors, shape=[1, 1, 1, 3, 2])
 
     # [0, 1]-scaled width/height
@@ -133,7 +133,7 @@ def loss_class_tensor(object_mask, pred_box_class, true_box_class, class_scale):
     return loss_class
 
 
-class Loss(tensorflow.keras.losses.Loss):
+class LossYolo3V1(Loss):
     def __init__(self,
                  image_size,
                  batch_size,
@@ -239,7 +239,7 @@ if __name__ == "__main__":
     y_true_test = np.ones((train_cfg.batch_size, 1, 1, 3, 25)).astype(np.float32)
     y_pred_test = np.zeros((train_cfg.batch_size, 1, 1, 75)).astype(np.float32)
 
-    test_loss = Loss(model_cfg.input_size, train_cfg.batch_size,
-                     model_cfg.anchor_array, [1, 2, 3]).call(y_true_test, y_pred_test)
+    test_loss = LossYolo3V1(model_cfg.input_size, train_cfg.batch_size,
+                            model_cfg.anchor_array, [1, 2, 3]).call(y_true_test, y_pred_test)
     print("Sum Loss:\t{}".format(test_loss))
     #
