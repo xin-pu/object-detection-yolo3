@@ -80,16 +80,16 @@ class LossYolo3V2(Loss):
                         t_h = ln(b_h / anchor_h)
 
         :param y_true:  [b,13,13,anchors,25]
-                        [b_x, b_y, nor_w, nor_h, 1/0,            class * 20]
+                        [b_x, b_y, t_w, t_h, 1/0,            class * 20]
                         b_w = e^nor_w * anchor_w
                         b_h = e^nor_h * anchor_h
 
-                        nor_w = ln(b_w / anchor_w)
-                        nor_h = ln(b_h / anchor_h)
-
-
+                        t_w = ln(b_w / anchor_w)
+                        t_h = ln(b_h / anchor_h)
 
         :return: loss
+
+            class loss = softmax_cross_entropy_with_logits(labels,logits)
         """
 
         shape_stand = [self.batch_size,
@@ -117,8 +117,8 @@ class LossYolo3V2(Loss):
         # Step 3 adjust pred tensor to [bx, by, bw, bh] and get ignore mask by iou
         pred_b_coord = tf.concat([pred_b_xy, pred_b_wh])
         true_b_coord = tf.concat([true_b_xy, true_b_wh])
-        s = iou_module.get_tf_diou(pred_b_coord, true_b_coord)
-        ignore_mask = tf.expand_dims(tf.cast(s < self.ignore_thresh, tf.float32), axis=-1)
+        iou_mask = iou_module.get_tf_diou(pred_b_coord, true_b_coord)
+        ignore_mask = tf.expand_dims(tf.cast(iou_mask < self.ignore_thresh, tf.float32), axis=-1)
 
         # Step 4 cal 3 part loss
         wh_scale = self.wh_scale_tensor(y_true[..., 2:4], anchors_current, self.image_size)
@@ -130,15 +130,15 @@ class LossYolo3V2(Loss):
                                               self.lambda_coord_wh)
 
         loss_confidence = self.get_confidence_loss(y_true[..., 4:5],
-                                                   y_pred[..., 4:5],
+                                                   tf.sigmoid(y_pred[..., 4:5]),
                                                    object_mask,
                                                    ignore_mask,
                                                    self.lambda_object,
                                                    self.lambda_no_object)
 
-        loss_class = self.get_class_loss_original(y_true[..., 5:],
-                                                  y_pred[..., 5:],
-                                                  object_mask)
+        loss_class = self.get_class_loss(y_true[..., 5:],
+                                         y_pred[..., 5:],
+                                         object_mask)
 
         return loss_coord + loss_confidence + loss_class
 
@@ -219,7 +219,8 @@ class LossYolo3V2(Loss):
         @param lambda_class:
         @return:
         """
-        class_truth = tf.cast(class_truth, tf.int64)
+        true_class = tf.argmax(class_truth, -1)
+        class_truth = tf.cast(true_class, tf.int64)
         loss_cross_entropy = tf.nn.softmax_cross_entropy_with_logits(class_truth, class_pred)
         class_delta = object_mask * tf.expand_dims(loss_cross_entropy, 4)
         return lambda_class * tf.reduce_sum(class_delta, axis=[1, 2, 3, 4])
