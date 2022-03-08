@@ -125,6 +125,7 @@ def convert_boxes_to_centroid_boxes(bound_boxes):
     for box in bound_boxes:
         centroid_boxes.append([box.x, box.y, box.w, box.h])
         probs.append(box.classes)
+
     return np.array(centroid_boxes), np.max(np.array(probs), axis=1)
 
 

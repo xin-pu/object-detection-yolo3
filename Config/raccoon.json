@@ -40,7 +40,7 @@
     "batch_size": 3,
     "learning_rate": 1e-4,
     "save_folder": "F:\\Raccoon\\train_output\\raccoon.h5",
-    "enhance": false,
+    "enhance": true,
     "shuffle": true,
     "random_net_size": false,
     "pre_train": false,

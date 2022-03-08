@@ -38,18 +38,28 @@ def create_mesh_anchor(anchors, pred_shape):
     return mesh_anchor
 
 
+def create_wh_scale(true_box_wh, anchors, image_size):
+    image_size_ = tf.reshape(tf.cast([image_size, image_size], tf.float32), [1, 1, 1, 1, 2])
+    anchors_ = tf.reshape(anchors, shape=[1, 1, 1, 3, 2])
+
+    # [0, 1]-scaled width/height
+    wh_scale = tf.exp(true_box_wh) * anchors_ / image_size_
+    # the smaller the box, the bigger the scale
+    wh_scale = tf.expand_dims(2 - wh_scale[..., 0] * wh_scale[..., 1], axis=4)
+    return wh_scale
+
+
 class LossYolo3V2(Loss):
     def __init__(self,
                  image_size,
                  batch_size,
                  anchor_array,
                  pattern_array,
-                 ignore_thresh=0.5,
+                 ignore_thresh=1,
                  grid_scale=1,
                  obj_scale=5,
                  noobj_scale=1,
-                 xy_scale=1,
-                 wh_scale=1,
+                 coord_scale=1,
                  class_scale=1,
                  name=None):
         self.anchor_array = anchor_array
@@ -60,8 +70,7 @@ class LossYolo3V2(Loss):
         self.grid_scale = grid_scale
         self.lambda_object = obj_scale
         self.lambda_no_object = noobj_scale
-        self.lambda_coord_xy = xy_scale
-        self.lambda_coord_wh = wh_scale
+        self.lambda_coord = coord_scale
         self.lambda_class = class_scale
         super().__init__(name=name)
 
@@ -115,43 +124,31 @@ class LossYolo3V2(Loss):
         true_b_wh = tf.exp(y_true[..., 2:4]) * anchors_current
 
         # Step 3 adjust pred tensor to [bx, by, bw, bh] and get ignore mask by iou
-        pred_b_coord = tf.concat([pred_b_xy, pred_b_wh])
-        true_b_coord = tf.concat([true_b_xy, true_b_wh])
+        pred_b_coord = tf.concat([pred_b_xy, pred_b_wh], axis=-1)
+        true_b_coord = tf.concat([true_b_xy, true_b_wh], axis=-1)
         iou_mask = iou_module.get_tf_diou(pred_b_coord, true_b_coord)
-        ignore_mask = tf.expand_dims(tf.cast(iou_mask < self.ignore_thresh, tf.float32), axis=-1)
+        ignore_mask = tf.cast(iou_mask < self.ignore_thresh, tf.float32)
 
         # Step 4 cal 3 part loss
-        wh_scale = self.wh_scale_tensor(y_true[..., 2:4], anchors_current, self.image_size)
+        wh_scale = create_wh_scale(y_true[..., 2:4], anchors_current, self.image_size)  # 制衡大小框导致的loss不均衡
         loss_coord = self.get_coordinate_loss(y_true[..., 0:4],
-                                              tf.concat(pred_b_xy, y_pred[..., 2:4]),
+                                              tf.concat([pred_b_xy, y_pred[..., 2:4]], axis=-1),
                                               object_mask,
-                                              wh_scale,
-                                              self.lambda_coord_xy,
-                                              self.lambda_coord_wh)
+                                              self.lambda_coord,
+                                              wh_scale)
 
-        loss_confidence = self.get_confidence_loss(y_true[..., 4:5],
-                                                   tf.sigmoid(y_pred[..., 4:5]),
+        loss_confidence = self.get_confidence_loss(y_true[..., 4],
+                                                   tf.sigmoid(y_pred[..., 4]),
                                                    object_mask,
                                                    ignore_mask,
                                                    self.lambda_object,
                                                    self.lambda_no_object)
 
-        loss_class = self.get_class_loss(y_true[..., 5:],
-                                         y_pred[..., 5:],
-                                         object_mask)
+        loss_class = self.get_class_loss_original(y_true[..., 5:],
+                                                  y_pred[..., 5:],
+                                                  object_mask)
 
         return loss_coord + loss_confidence + loss_class
-
-    @staticmethod
-    def wh_scale_tensor(true_box_wh, anchors, image_size):
-        image_size_ = tf.reshape(tf.cast(image_size, tf.float32), [1, 1, 1, 1, 2])
-        anchors_ = tf.reshape(anchors, shape=[1, 1, 1, 3, 2])
-
-        # [0, 1]-scaled width/height
-        wh_scale = tf.exp(true_box_wh) * anchors_ / image_size_
-        # the smaller the box, the bigger the scale
-        wh_scale = tf.expand_dims(2 - wh_scale[..., 0] * wh_scale[..., 1], axis=4)
-        return wh_scale
 
     @staticmethod
     def convert_coord_to_bbox_for_pred(coord, anchors, input_shape):
@@ -180,30 +177,28 @@ class LossYolo3V2(Loss):
             ignore_mask,
             lambda_object=5,
             lambda_no_object=1):
-        # confidence_mask_ = tf.squeeze(object_mask, axis=-1)
-        confidence_loss = lambda_object * object_mask * (confidence_pred - confidence_truth) + \
-                          lambda_no_object * (1 - object_mask) * ignore_mask * confidence_pred
-        return tf.reduce_sum(tf.square(confidence_loss), axis=[1, 2, 3])
+        confidence_mask = tf.squeeze(object_mask, axis=-1)
+        confidence_loss = lambda_object * confidence_mask * (confidence_pred - confidence_truth) + \
+                          lambda_no_object * (1 - confidence_mask) * ignore_mask * confidence_pred
+        return tf.reduce_sum(tf.square(confidence_loss), list(range(1, 4)))
 
     @staticmethod
     def get_coordinate_loss(coordinate_truth,
                             coordinate_pred,
                             object_mask,
-                            lambda_xy=1,
-                            lambda_wh=1):
+                            xywh_scale,
+                            wh_scale):
         """
         计算有目标检测框的坐标损失
         @param coordinate_truth:
         @param coordinate_pred:
         @param object_mask:
-        @param lambda_xy:
-        @param lambda_wh:
+        @param xywh_scale:
         @return:
         """
-        coord_delta = object_mask * tf.square(coordinate_pred - coordinate_truth)
-        xy_delta = lambda_xy * tf.reduce_sum(coord_delta[..., 0:2], [1, 2, 3, 4])
-        wh_delta = lambda_wh * tf.reduce_sum(coord_delta[..., 2:4], [1, 2, 3, 4])
-        return xy_delta + wh_delta
+        xy_delta = object_mask * (coordinate_pred - coordinate_truth) * xywh_scale * wh_scale
+        loss_coord = tf.reduce_sum(tf.square(xy_delta), list(range(1, 5)))
+        return loss_coord
 
     @staticmethod
     def get_class_loss(class_truth,
@@ -221,7 +216,7 @@ class LossYolo3V2(Loss):
         """
         true_class = tf.argmax(class_truth, -1)
         class_truth = tf.cast(true_class, tf.int64)
-        loss_cross_entropy = tf.nn.softmax_cross_entropy_with_logits(class_truth, class_pred)
+        loss_cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(class_truth, class_pred)
         class_delta = object_mask * tf.expand_dims(loss_cross_entropy, 4)
         return lambda_class * tf.reduce_sum(class_delta, axis=[1, 2, 3, 4])
 
@@ -241,54 +236,26 @@ class LossYolo3V2(Loss):
         class_delta_mask = object_mask * tf.square(class_truth - class_pred)
         return lambda_class * tf.reduce_sum(class_delta_mask, axis=[1, 2, 3, 4])
 
-    @staticmethod
-    def adjust_y_pred(y_pred, input_shape, anchors):
-        """
-        Convert pred [tx, ty, tw, th]=> [bx, by, bw, bh]
-        sigmoid(confidence), sigmoid confidence here to cal loss
-        """
-        t_xy = y_pred[..., 0:2]
-        t_wh = y_pred[..., 2:4]
-        pred_confidence = y_pred[..., 4:5]
-
-        grid_offset_xy = create_grid_xy_offset(*input_shape[0:4])
-        grid_anchor = create_mesh_anchor(anchors, input_shape)
-
-        b_xy = tf.sigmoid(t_xy) + grid_offset_xy
-        # b_wh = grid_anchor * tf.exp(t_wh)
-        b_wh = t_wh
-        confidence = tf.sigmoid(pred_confidence)
-        classes = y_pred[..., 5:]
-        return tf.concat([b_xy, b_wh, tf.expand_dims(confidence, axis=-1), classes], axis=-1)
-
-    @staticmethod
-    def adjust_y_true(y_true):
-        xywh_confidence = y_true[..., :5]
-        true_class = tf.argmax(y_true[..., 5:], -1)
-        trues = tf.concat([xywh_confidence, tf.expand_dims(tf.cast(true_class, tf.float32), -1)], axis=-1)
-        return trues
-
 
 if __name__ == "__main__":
-    pass
-    # from DataSet.batch_generator import *
-    #
-    # config_file = r"..\config\raccoon.json"
-    # with open(config_file) as data_file:
-    #     config = json.load(data_file)
-    #
-    # model_cfg = ModelConfig(config["model"])
-    # train_cfg = TrainConfig(config["train"])
-    #
-    # train_generator = BatchGenerator(model_cfg, train_cfg, True)
-    #
-    # _, y_true = train_generator.return_next_batch()
-    # single_y_true = y_true[0]
-    # shape = single_y_true.shape
-    # end_dims = shape[-1] * shape[-2]
-    # new_shape = [shape[0], shape[1], shape[2], end_dims]
-    # y_pred = single_y_true.reshape(new_shape)
-    # y_pred = tf.zeros_like(y_pred)
-    # test_loss = LossYolo3V2(model_cfg.input_size, train_cfg.batch_size,
-    #                         model_cfg.anchor_array, train_generator.pattern_shape).call(single_y_true, y_pred)
-    # print("Sum Loss:\t{}".format(test_loss))
+    from DataSet.batch_generator import *
+
+    config_file = r"..\config\raccoon.json"
+    with open(config_file) as data_file:
+        config = json.load(data_file)
+
+    model_cfg = ModelConfig(config["model"])
+    train_cfg = TrainConfig(config["train"])
+
+    train_generator = BatchGenerator(model_cfg, train_cfg, True)
+
+    _, y_true = train_generator.return_next_batch()
+    single_y_true = y_true[0]
+    shape = single_y_true.shape
+    end_dims = shape[-1] * shape[-2]
+    new_shape = [shape[0], shape[1], shape[2], end_dims]
+    y_pred = single_y_true.reshape(new_shape)
+    y_pred = tf.zeros_like(y_pred)
+    test_loss = LossYolo3V2(model_cfg.input_size, train_cfg.batch_size,
+                            model_cfg.anchor_array, train_generator.pattern_shape).call(single_y_true, y_pred)
+    print("Sum Loss:\t{}".format(test_loss))

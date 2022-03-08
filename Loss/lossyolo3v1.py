@@ -100,7 +100,7 @@ def conf_delta_tensor(y_true, y_pred, pred_shape, anchors, ignore_thresh):
 
 
 def wh_scale_tensor(true_box_wh, anchors, image_size):
-    image_size_ = tf.reshape(tf.cast(image_size, tf.float32), [1, 1, 1, 1, 2])
+    image_size_ = tf.reshape(tf.cast([image_size, image_size], tf.float32), [1, 1, 1, 1, 2])
     anchors_ = tf.reshape(anchors, shape=[1, 1, 1, 3, 2])
 
     # [0, 1]-scaled width/height
@@ -229,17 +229,23 @@ class LossYolo3V1(Loss):
 if __name__ == "__main__":
     from DataSet.batch_generator import *
 
-    config_file = r"..\config\pascal_voc.json"
+    config_file = r"..\config\raccoon.json"
     with open(config_file) as data_file:
         config = json.load(data_file)
 
     model_cfg = ModelConfig(config["model"])
     train_cfg = TrainConfig(config["train"])
 
-    y_true_test = np.ones((train_cfg.batch_size, 1, 1, 3, 25)).astype(np.float32)
-    y_pred_test = np.zeros((train_cfg.batch_size, 1, 1, 75)).astype(np.float32)
+    train_generator = BatchGenerator(model_cfg, train_cfg, True)
 
+    _, y_true = train_generator.return_next_batch()
+    single_y_true = y_true[0]
+    shape = single_y_true.shape
+    end_dims = shape[-1] * shape[-2]
+    new_shape = [shape[0], shape[1], shape[2], end_dims]
+    y_pred = single_y_true.reshape(new_shape)
+    y_pred = tf.zeros_like(y_pred)
     test_loss = LossYolo3V1(model_cfg.input_size, train_cfg.batch_size,
-                            model_cfg.anchor_array, [1, 2, 3]).call(y_true_test, y_pred_test)
+                            model_cfg.anchor_array, train_generator.pattern_shape).call(single_y_true, y_pred)
     print("Sum Loss:\t{}".format(test_loss))
     #

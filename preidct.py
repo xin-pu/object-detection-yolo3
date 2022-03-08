@@ -18,7 +18,7 @@ def predict(task, image, model_initial):
 
     # 3. run detection
     print("{0}\tRun Detection\t{0}".format("-" * 30))
-    boxes, labels, probs = detector.detect_from_file(image, cls_threshold=0.3)
+    boxes, labels, probs = detector.detect_from_file(image, cls_threshold=0.4)
     print(boxes, labels, probs)
 
     # 4. draw result
@@ -32,13 +32,14 @@ def predict(task, image, model_initial):
                     lineType=cv2.LINE_AA)
 
     cv2.imshow("Result", image)
-    cv2.waitKey(0)
+    cv2.waitKey(2000)
 
 
 if __name__ == '__main__':
     # predict(r'config\coco.json', r"F:\PASCALVOC\VOC2012\JPEGImages\2012_003869.jpg", ModelInit.original)
 
-    # predict(r'config\pascal_voc.json', r"F:\PASCALVOC\VOC2007_Val\JPEGImages\000071.jpg", ModelInit.pretrain)
-
-    predict(r'config\raccoon.json', r"F:\Raccoon\images\raccoon-1.jpg",
+    predict(r'config\pascal_voc.json', r"F:\PASCALVOC\VOC2007_Val\JPEGImages\001802.jpg",
             ModelInit.pretrain)
+
+    # predict(r'config\raccoon.json', r"E:\OneDrive - II-VI Incorporated\Pictures\Saved Pictures\test4.jpg",
+    #         ModelInit.pretrain)

@@ -2,17 +2,16 @@ from tensorflow.keras.optimizers import *
 from tensorflow.python.keras.callbacks import *
 
 from Loss.lossyolo3v2 import LossYolo3V2
-from Loss.lossyolo3v1 import LossYolo3V1
 from task import TaskParser, ModelInit
 
 if __name__ == "__main__":
-    task_parser = TaskParser(r'config\raccoon.json')
+    task_parser = TaskParser(r'config\pascal_voc.json')
 
     # 1. create generator
     train_generator, valid_generator = task_parser.create_generator()
 
     # Create Mode
-    model = task_parser.create_model(model_init=ModelInit.random)
+    model = task_parser.create_model(model_init=ModelInit.pretrain)
 
     boardFolder = "./TensorBoard"
     tensorboard_callback = TensorBoard(boardFolder, histogram_freq=1)
@@ -33,18 +32,16 @@ if __name__ == "__main__":
 
     early_stopping = EarlyStopping(monitor='loss',
                                    min_delta=0,
-                                   patience=10,
+                                   patience=20,
                                    verbose=1,
                                    restore_best_weights=True)
 
-    csv_logger = CSVLogger('log.csv', append=False)
+    csv_logger = CSVLogger('log.csv', append=True)
 
     call_backs = [checkpoint, reduce_lr, early_stopping, csv_logger]
 
-    current_net_size = (train_generator.input_size, train_generator.input_size)
-
     model.compile(optimizer=Adam(learning_rate=train_generator.learning_rate, clipnorm=0.001),
-                  loss=LossYolo3V1(current_net_size,
+                  loss=LossYolo3V2(train_generator.input_size,
                                    train_generator.batch_size,
                                    train_generator.anchors_array,
                                    train_generator.pattern_shape,
@@ -58,4 +55,4 @@ if __name__ == "__main__":
               callbacks=call_backs,
               workers=1,
               max_queue_size=8,
-              initial_epoch=0)
+              initial_epoch=24)
