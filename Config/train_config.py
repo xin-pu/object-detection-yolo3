@@ -48,7 +48,7 @@ class TrainConfig(object):
 
 
 if __name__ == "__main__":
-    with open("pascal_voc.json") as data_file:
+    with open("pascalVoc.json") as data_file:
         configs = json.load(data_file)
 
     model_config = ModelConfig(configs["model"])

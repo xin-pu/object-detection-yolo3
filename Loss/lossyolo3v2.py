@@ -55,9 +55,9 @@ class LossYolo3V2(Loss):
                  batch_size,
                  anchor_array,
                  pattern_array,
-                 ignore_thresh=1,
+                 ignore_thresh=1.2,
                  grid_scale=1,
-                 obj_scale=5,
+                 obj_scale=2,
                  noobj_scale=1,
                  coord_scale=1,
                  class_scale=1,
@@ -80,25 +80,9 @@ class LossYolo3V2(Loss):
         cal loss
         :param y_pred:  [b,13,13,anchors*25]
                         [t_x, t_y, t_w, t_h, t_confidence，t_class * 20]
-                        b_x = sigmoid(t_x) + c_x
-                        b_y = sigmoid(t_y) + c_y
-                        b_w = e^t_w * anchor_w
-                        b_h = e^t_h * anchor_h
-
-                        t_w = ln(b_w / anchor_w)
-                        t_h = ln(b_h / anchor_h)
-
         :param y_true:  [b,13,13,anchors,25]
                         [b_x, b_y, t_w, t_h, 1/0,            class * 20]
-                        b_w = e^nor_w * anchor_w
-                        b_h = e^nor_h * anchor_h
-
-                        t_w = ln(b_w / anchor_w)
-                        t_h = ln(b_h / anchor_h)
-
         :return: loss
-
-            class loss = softmax_cross_entropy_with_logits(labels,logits)
         """
 
         shape_stand = [self.batch_size,
@@ -118,6 +102,7 @@ class LossYolo3V2(Loss):
         # Step 3 convert pred coord to bounding box coord
         pred_b_xy = tf.sigmoid(y_pred[..., 0:2]) + create_grid_xy_offset(*shape_stand[0:4])
         pred_b_wh = tf.exp(y_pred[..., 2:4]) * create_mesh_anchor(anchors_current, shape_stand)
+        pred_class = tf.sigmoid(y_pred[..., 5:])
 
         # Step 3 convert true coord to bounding box coord
         true_b_xy = y_true[..., 0:2]
@@ -144,9 +129,9 @@ class LossYolo3V2(Loss):
                                                    self.lambda_object,
                                                    self.lambda_no_object)
 
-        loss_class = self.get_class_loss_original(y_true[..., 5:],
-                                                  y_pred[..., 5:],
-                                                  object_mask)
+        loss_class = self.get_class_loss(y_true[..., 5:],
+                                         y_pred[..., 5:],
+                                         object_mask)
 
         return loss_coord + loss_confidence + loss_class
 
@@ -206,35 +191,17 @@ class LossYolo3V2(Loss):
                        object_mask,
                        lambda_class=1):
         """
-        calculate class loss
-
+        calculate class loss by sigmoid_cross_entropy_with_logits
+        class_pred will sigmoid to cal loss
         @param class_truth: shape[..., n] tensor with n class
         @param class_pred:  shape[..., n] tensor with n class
         @param object_mask:
         @param lambda_class:
         @return:
         """
-        true_class = tf.argmax(class_truth, -1)
-        class_truth = tf.cast(true_class, tf.int64)
-        loss_cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(class_truth, class_pred)
-        class_delta = object_mask * tf.expand_dims(loss_cross_entropy, 4)
+        loss_cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(labels=class_truth, logits=class_pred)
+        class_delta = object_mask * loss_cross_entropy
         return lambda_class * tf.reduce_sum(class_delta, axis=[1, 2, 3, 4])
-
-    @staticmethod
-    def get_class_loss_original(class_truth,
-                                class_pred,
-                                object_mask,
-                                lambda_class=1):
-        """
-        calculate class loss
-        @param class_truth: shape[..., n] tensor with n class
-        @param class_pred:  shape[..., n] tensor with n class
-        @param object_mask:
-        @param lambda_class:
-        @return:
-        """
-        class_delta_mask = object_mask * tf.square(class_truth - class_pred)
-        return lambda_class * tf.reduce_sum(class_delta_mask, axis=[1, 2, 3, 4])
 
 
 if __name__ == "__main__":
@@ -249,13 +216,13 @@ if __name__ == "__main__":
 
     train_generator = BatchGenerator(model_cfg, train_cfg, True)
 
-    _, y_true = train_generator.return_next_batch()
-    single_y_true = y_true[0]
+    _, test_y_true = train_generator.return_next_batch()
+    single_y_true = test_y_true[0]
     shape = single_y_true.shape
     end_dims = shape[-1] * shape[-2]
     new_shape = [shape[0], shape[1], shape[2], end_dims]
-    y_pred = single_y_true.reshape(new_shape)
-    y_pred = tf.zeros_like(y_pred)
+    test_y_pred = single_y_true.reshape(new_shape)
+    test_y_pred = tf.zeros_like(test_y_pred)
     test_loss = LossYolo3V2(model_cfg.input_size, train_cfg.batch_size,
-                            model_cfg.anchor_array, train_generator.pattern_shape).call(single_y_true, y_pred)
+                            model_cfg.anchor_array, train_generator.pattern_shape).call(single_y_true, test_y_pred)
     print("Sum Loss:\t{}".format(test_loss))

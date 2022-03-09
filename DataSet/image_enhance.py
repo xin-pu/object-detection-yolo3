@@ -2,7 +2,7 @@
 
 import cv2
 import numpy as np
-
+import tensorflow as tf
 from DataSet.pascalvoc_parser import PascalVocParser
 
 np.random.seed(1337)
@@ -35,7 +35,8 @@ class ImageEnhance(object):
         # 2. make enhance on image
         boxes = np.copy(boxes)
         if self.enhance:
-            image, boxes = self.make_enhance_on_image(image, boxes)
+            tf_image = tf.image.random_brightness(image, 0.5)
+            image = tf_image.numpy()
 
         # 3. resize image
         image, boxes = self.resize_image(image, boxes, self.w, self.h)

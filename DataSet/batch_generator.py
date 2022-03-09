@@ -4,6 +4,7 @@ import os
 from Config.train_config import *
 from DataSet.image_enhance import ImageEnhance
 from DataSet.pascalvoc_parser import PascalVocParser
+from Utils.anchor_boxes import convert_to_encode_box
 from Utils.bound_box import *
 from Utils.convert import *
 

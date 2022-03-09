@@ -86,8 +86,3 @@ if __name__ == "__main__":
     print(task.model_cfg.__dict__)
     net = task.create_model(ModelInit.original)
     net.summary()
-    # test_x = tf.ones(shape=(1, 416, 416, 3), dtype=float)
-    # test_y = net.predict(test_x)
-    # print(test_y[0])
-    # print(test_y[1])
-    # print(test_y[2])
