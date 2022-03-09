@@ -36,6 +36,7 @@ class ImageEnhance(object):
         boxes = np.copy(boxes)
         if self.enhance:
             tf_image = tf.image.random_brightness(image, 0.5)
+
             image = tf_image.numpy()
 
         # 3. resize image

@@ -1,18 +1,15 @@
+import Utils.iou as iou_module
 import tensorflow as tf
 from tensorflow.keras.losses import Loss
 
-import Utils.iou as iou_module
 
-
-def create_grid_xy_offset(batch_size, grid_h, grid_w, n_box):
+def create_grid_xy_offset(pred_shape):
     """
-
-    :param batch_size: 4
-    :param grid_h: 13
-    :param grid_w: 13
-    :param n_box: 3
+    :param pred_shape:
     :return: return shape is [batch_size,grid_h,grid_w,n_box,2], 2 means: x offset,y offset
     """
+    batch_size, grid_h, grid_w, n_box = pred_shape[0:4]
+
     basic = tf.reshape(tf.tile(tf.range(grid_h), [grid_w]), (1, grid_h, grid_w, 1, 1))
 
     mesh_x = tf.cast(basic, tf.float32)
@@ -23,7 +20,7 @@ def create_grid_xy_offset(batch_size, grid_h, grid_w, n_box):
     return tf.tile(mesh_xy, [batch_size, 1, 1, n_box, 1])
 
 
-def create_mesh_anchor(anchors, pred_shape):
+def create_mesh_anchor(pred_shape, anchors):
     """
     # Returns
         mesh_anchor : Tensor, shape of (batch_size, grid_h, grid_w, n_box, 2)
@@ -55,8 +52,7 @@ class LossYolo3V2(Loss):
                  batch_size,
                  anchor_array,
                  pattern_array,
-                 ignore_thresh=1.2,
-                 grid_scale=1,
+                 iou_ignore_thresh=0.5,
                  obj_scale=2,
                  noobj_scale=1,
                  coord_scale=1,
@@ -66,8 +62,7 @@ class LossYolo3V2(Loss):
         self.image_size = image_size
         self.batch_size = batch_size
         self.pattern_array = pattern_array
-        self.ignore_thresh = ignore_thresh
-        self.grid_scale = grid_scale
+        self.iou_ignore_thresh = iou_ignore_thresh
         self.lambda_object = obj_scale
         self.lambda_no_object = noobj_scale
         self.lambda_coord = coord_scale
@@ -101,8 +96,7 @@ class LossYolo3V2(Loss):
 
         # Step 3 convert pred coord to bounding box coord
         pred_b_xy = tf.sigmoid(y_pred[..., 0:2]) + create_grid_xy_offset(*shape_stand[0:4])
-        pred_b_wh = tf.exp(y_pred[..., 2:4]) * create_mesh_anchor(anchors_current, shape_stand)
-        pred_class = tf.sigmoid(y_pred[..., 5:])
+        pred_b_wh = tf.exp(y_pred[..., 2:4]) * create_mesh_anchor(shape_stand, anchors_current)
 
         # Step 3 convert true coord to bounding box coord
         true_b_xy = y_true[..., 0:2]
@@ -111,8 +105,8 @@ class LossYolo3V2(Loss):
         # Step 3 adjust pred tensor to [bx, by, bw, bh] and get ignore mask by iou
         pred_b_coord = tf.concat([pred_b_xy, pred_b_wh], axis=-1)
         true_b_coord = tf.concat([true_b_xy, true_b_wh], axis=-1)
-        iou_mask = iou_module.get_tf_diou(pred_b_coord, true_b_coord)
-        ignore_mask = tf.cast(iou_mask < self.ignore_thresh, tf.float32)
+        iou_mask = iou_module.get_tf_iou(pred_b_coord, true_b_coord)
+        ignore_mask = tf.cast(iou_mask < self.iou_ignore_thresh, tf.float32)
 
         # Step 4 cal 3 part loss
         wh_scale = create_wh_scale(y_true[..., 2:4], anchors_current, self.image_size)  # 制衡大小框导致的loss不均衡
