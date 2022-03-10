@@ -1,7 +1,8 @@
 from tensorflow.keras.optimizers import *
 from tensorflow.python.keras.callbacks import *
 
-from Loss.lossyolo3v2 import LossYolo3V2
+from Loss.lossyolo3 import LossYolo3
+from Loss.lossyolo4 import LossYolo4
 from task import TaskParser, ModelInit
 
 if __name__ == "__main__":
@@ -17,22 +18,22 @@ if __name__ == "__main__":
     tensorboard_callback = TensorBoard(boardFolder, histogram_freq=1)
 
     checkpoint = ModelCheckpoint(train_generator.save_folder,
-                                 monitor='loss',
+                                 monitor='val_loss',
                                  save_weights_only=True,
                                  save_best_only=True,
                                  save_freq='epoch',
                                  verbose=1,
                                  mode='min')
 
-    reduce_lr = ReduceLROnPlateau(monitor='loss',
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss',
                                   factor=0.1,
-                                  patience=5,
+                                  patience=4,
                                   verbose=1,
                                   mode='min')
 
-    early_stopping = EarlyStopping(monitor='loss',
+    early_stopping = EarlyStopping(monitor='val_loss',
                                    min_delta=0,
-                                   patience=10,
+                                   patience=8,
                                    verbose=1,
                                    restore_best_weights=True)
 
@@ -40,12 +41,12 @@ if __name__ == "__main__":
 
     call_backs = [checkpoint, reduce_lr, early_stopping, csv_logger]
 
-    model.compile(optimizer=RMSprop(learning_rate=train_generator.learning_rate, clipnorm=0.001),
-                  loss=LossYolo3V2(train_generator.input_size,
-                                   train_generator.batch_size,
-                                   train_generator.anchors_array,
-                                   train_generator.pattern_shape,
-                                   1))
+    model.compile(optimizer=Adam(learning_rate=train_generator.learning_rate, clipnorm=0.001),
+                  loss=LossYolo3(train_generator.input_size,
+                                 train_generator.batch_size,
+                                 train_generator.anchors_array,
+                                 train_generator.pattern_shape,
+                                 1))
 
     model.fit(train_generator.yield_next_batch(),
               steps_per_epoch=train_generator.steps_per_epoch,

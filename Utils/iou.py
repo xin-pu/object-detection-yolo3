@@ -2,7 +2,6 @@
 This is a module for calculate iou
 """
 
-import tensorflow as tf
 from Utils.convert import *
 
 

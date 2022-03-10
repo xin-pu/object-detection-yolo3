@@ -1,4 +1,5 @@
 import tensorflow as tf
+import math
 
 
 def get_tf_iou(boxes_1, boxes_2):
@@ -144,7 +145,7 @@ def get_tf_diou(boxes_1, boxes_2):
     return diou
 
 
-def get_tf_ciou( boxes_1, boxes_2):
+def get_tf_ciou(boxes_1, boxes_2):
     """
     calculate regression loss using ciou
     :param boxes_1: boxes_1 shape is [x, y, w, h]
@@ -156,7 +157,7 @@ def get_tf_ciou( boxes_1, boxes_2):
 
     v = 4 * tf.square(
         tf.math.atan2(boxes_1[..., 2], boxes_1[..., 3]) - tf.math.atan2(boxes_2[..., 2], boxes_2[..., 3])) / (
-                    math.pi * math.pi)
+                math.pi * math.pi)
 
     # transform [x, y, w, h] to [x_min, y_min, x_max, y_max]
     boxes_1 = tf.concat([boxes_1[..., :2] - boxes_1[..., 2:] * 0.5,
