@@ -50,7 +50,7 @@ class LossYolo3(Loss):
         grid_size = y_pred.shape[1]  # [52,26,13]
 
         # Step 1 transform all pred output
-        # reshape y_preds from [b,13,13,anchors*25] to [b,13,13,anchors,25]
+        # reshape y_pred from [b,13,13,anchors*25] to [b,13,13,anchors,25]
         y_pred = tf.reshape(y_pred, shape_stand)
         pred_xy = y_pred[..., 0:2]
         pred_t_coord = y_pred[..., 0:4]
@@ -62,30 +62,26 @@ class LossYolo3(Loss):
         # Step 3 convert true coord to bounding box coord
         true_b_xy = y_true[..., 0:2]
         true_b_wh = y_true[..., 2:4]
-        true_b_coord = tf.concat(true_b_xy, true_b_wh)
         true_t_xy = tf.math.mod(true_b_xy * grid_size, 1)
         true_t_wh = tf.math.log(true_b_wh * self.image_size / anchors_current)
         true_t_wh = tf.where(tf.math.is_inf(true_t_wh), tf.zeros_like(true_t_wh), true_t_wh)
         true_t_coord = tf.concat(true_t_xy, true_t_wh)
 
-        # Step 4 Get box loss scale and mask object
-        mask_object = tf.expand_dims(y_true[..., 4], 4)
+        # Step 4 Get box loss scale and mask object and mask ignore
         box_loss_scale = tf.expand_dims(2 - true_b_wh[..., 0] * true_b_wh[..., 1], axis=-1)  # 制衡大小框导致的loss不均衡
 
-        # 4. calculate all masks
+        mask_object = tf.expand_dims(y_true[..., 4], 4)
 
-        # ignore false positive when iou is over threshold
         best_iou = tf.map_fn(
             lambda x: tf.reduce_max(get_tf_iou(x[0], tf.boolean_mask(x[1], tf.cast(x[2], tf.bool))), axis=-1),
-            (pred_box, true_box, mask_object),
-            tf.float32)
-        mask_igore = tf.cast(best_iou < self.iou_ignore_thresh, tf.float32)
+            (pred_b_coord, true_t_coord, mask_object), tf.float32)
+        mask_ignore = tf.cast(best_iou < self.iou_ignore_thresh, tf.float32)
 
         # 置信度损失
         loss_confidence = self.get_confidence_loss_cross(y_true[..., 4],
                                                          y_pred[..., 4],
                                                          mask_object,
-                                                         mask_igore,
+                                                         mask_ignore,
                                                          self.lambda_object,
                                                          self.lambda_no_object)
         # 坐标损失
@@ -93,8 +89,7 @@ class LossYolo3(Loss):
                                               pred_t_coord,
                                               mask_object,
                                               self.lambda_coord,
-                                              box_loss_scale,
-                                              model=0)
+                                              box_loss_scale)
 
         # 分类损失
         loss_class = self.get_class_loss(y_true[..., 5:],
@@ -105,23 +100,6 @@ class LossYolo3(Loss):
         return total_loss
 
     @staticmethod
-    def get_confidence_loss(
-            confidence_truth,
-            confidence_pred,
-            object_mask,
-            ignore_mask,
-            lambda_object=5,
-            lambda_no_object=1):
-        con_pred = tf.sigmoid(confidence_pred)
-
-        mask_object = tf.squeeze(object_mask, axis=-1)
-        loss_object = mask_object * tf.square(con_pred - confidence_truth)
-        loss_no_object = ignore_mask * (1 - mask_object) * tf.square(con_pred - confidence_truth)
-        confidence_loss = lambda_object * loss_object + lambda_no_object * loss_no_object
-        # print("Object J:{}\tNo_object J{}\tSum J{}".format(loss_object, loss_no_object, confidence_loss))
-        return tf.reduce_mean(confidence_loss, list(range(1, 4)))
-
-    @staticmethod
     def get_confidence_loss_cross(
             confidence_truth,
             confidence_pred,
@@ -129,10 +107,8 @@ class LossYolo3(Loss):
             ignore_mask,
             lambda_object=1,
             lambda_no_object=1):
-
         bc_loss = binary_crossentropy(confidence_truth, confidence_pred)
-        obj_loss = lambda_object * object_mask * bc_loss + \
-                   lambda_no_object * (1 - object_mask) * ignore_mask * bc_loss
+        obj_loss = lambda_object * object_mask * bc_loss + lambda_no_object * (1 - object_mask) * ignore_mask * bc_loss
         return tf.reduce_sum(obj_loss, list(range(1, 4)))
 
     @staticmethod
@@ -140,48 +116,18 @@ class LossYolo3(Loss):
                             coordinate_pred,
                             object_mask,
                             lambda_coord,
-                            box_scale,
-                            model=0):
-        """
-        计算有目标检测框的坐标损失
-        :param model:
-        :param coordinate_truth:
-        :param coordinate_pred:
-        :param object_mask:
-        :param lambda_coord:
-        :param box_scale:
-        :return:
-        """
-        if model == 0:
-            # Xin.Pu cross entropy is helpful to avoid exp overflow
-            cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(coordinate_truth[..., 0:2],
-                                                                    coordinate_pred[..., 0:2])
-            xy_loss = object_mask * box_scale * cross_entropy
-            wh_loss = object_mask * box_scale * 0.5 * (
-                tf.math.square(coordinate_truth[..., 0:2] - coordinate_pred[..., 0:2]))
-            loss_coord = lambda_coord * tf.reduce_sum(xy_loss + wh_loss, list(range(1, 4)))
-            return loss_coord
-        elif model == 1:
-            mse_loss = object_mask * (tf.square(coordinate_pred - coordinate_truth)) * box_scale
-            loss_coord = lambda_coord * tf.reduce_sum(mse_loss, list(range(1, 4)))
-            return loss_coord
+                            box_scale):
+        mse_loss = object_mask * (tf.reduce_sum(tf.square(coordinate_pred - coordinate_truth), axis=-1)) * box_scale
+        loss_coord = lambda_coord * tf.reduce_sum(mse_loss, list(range(1, 4)))
+        return loss_coord
 
     @staticmethod
     def get_class_loss(class_truth,
                        class_pred,
                        object_mask,
                        lambda_class):
-        """
-        calculate class loss by sigmoid_cross_entropy_with_logits
-        class_pred will sigmoid to cal loss
-        @param class_truth: shape[..., n] tensor with n class
-        @param class_pred:  shape[..., n] tensor with n class
-        @param object_mask:
-        @param lambda_class:
-        @return:
-        """
         loss_cross_entropy = object_mask * tf.nn.sigmoid_cross_entropy_with_logits(class_truth, class_pred)
-        return lambda_class * tf.reduce_sum(loss_cross_entropy, axis=[1, 2, 3, 4])
+        return lambda_class * tf.reduce_sum(loss_cross_entropy, list(range(1, 4)))
 
     @staticmethod
     def convert_coord_to_bbox_for_pred(coord, anchors, input_shape):
@@ -204,20 +150,6 @@ class LossYolo3(Loss):
 
     @staticmethod
     def box_iou(b1, b2):
-        '''Return iou tensor
-
-        Parameters
-        ----------
-        b1: tensor, shape=(i1,...,iN, 4), xywh
-        b2: tensor, shape=(j, 4), xywh
-
-        Returns
-        -------
-        iou: tensor, shape=(i1,...,iN, j)
-
-        '''
-
-        # Expand dim to apply broadcasting.
         b1 = tf.expand_dims(b1, -2)
         b1_xy = b1[..., :2]
         b1_wh = b1[..., 2:4]
