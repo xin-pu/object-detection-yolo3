@@ -73,7 +73,7 @@ class LossYolo3(Loss):
         mask_object = tf.expand_dims(y_true[..., 4], 4)
 
         best_iou = tf.map_fn(
-            lambda x: tf.reduce_max(get_tf_iou(x[0], tf.boolean_mask(x[1], tf.cast(x[2], tf.bool))), axis=-1),
+            lambda _x: tf.reduce_max(get_tf_iou(_x[0], tf.boolean_mask(_x[1], tf.cast(_x[2], tf.bool))), axis=-1),
             (pred_b_coord, true_t_coord, mask_object), tf.float32)
         mask_ignore = tf.cast(best_iou < self.iou_ignore_thresh, tf.float32)
 
@@ -182,32 +182,35 @@ if __name__ == "__main__":
     # b = tf.boolean_mask(a, mask)
     # print(b)
     # pass
+    elem = tf.constant([[1., 2., 5, 3], [2., 3., 1, 2]])
+    res = tf.map_fn(lambda x: (tf.square(x[0] - x[1])), (elem, tf.constant([1., 1., 2, 2])), dtype=float)
+    print(res)
 
-    from DataSet.batch_generator import *
-
-    config_file = r"..\config\raccoon.json"
-    with open(config_file) as data_file:
-        config = json.load(data_file)
-
-    model_cfg = ModelConfig(config["model"])
-    train_cfg = TrainConfig(config["train"])
-
-    train_generator = BatchGenerator(model_cfg, train_cfg, True)
-
-    x, test_y_true = train_generator.return_next_batch()
-
-    yolo_net = get_yolo3_backend((416, 416), 1, True)
-    test_y_pred = yolo_net(x)
-
-    test_loss = LossYolo3(model_cfg.input_size, train_cfg.batch_size,
-                          model_cfg.anchor_array,
-                          train_generator.pattern_shape,
-                          iou_ignore_thresh=0.25,
-                          coord_scale=1,
-                          class_scale=1,
-                          obj_scale=1,
-                          noobj_scale=1)
-
-    for i in range(0, 3):
-        object_count = tf.math.count_nonzero(test_y_true[i][..., 4]).numpy()
-        loss = test_loss.call(test_y_true[i], test_y_pred[i])
+    # from DataSet.batch_generator import *
+    #
+    # config_file = r"..\config\raccoon.json"
+    # with open(config_file) as data_file:
+    #     config = json.load(data_file)
+    #
+    # model_cfg = ModelConfig(config["model"])
+    # train_cfg = TrainConfig(config["train"])
+    #
+    # train_generator = BatchGenerator(model_cfg, train_cfg, True)
+    #
+    # x, test_y_true = train_generator.return_next_batch()
+    #
+    # yolo_net = get_yolo3_backend((416, 416), 1, True)
+    # test_y_pred = yolo_net(x)
+    #
+    # test_loss = LossYolo3(model_cfg.input_size, train_cfg.batch_size,
+    #                       model_cfg.anchor_array,
+    #                       train_generator.pattern_shape,
+    #                       iou_ignore_thresh=0.25,
+    #                       coord_scale=1,
+    #                       class_scale=1,
+    #                       obj_scale=1,
+    #                       noobj_scale=1)
+    #
+    # for i in range(0, 3):
+    #     object_count = tf.math.count_nonzero(test_y_true[i][..., 4]).numpy()
+    #     loss = test_loss.call(test_y_true[i], test_y_pred[i])
