@@ -45,9 +45,9 @@ if __name__ == "__main__":
                                  train_generator.batch_size,
                                  train_generator.anchors_array,
                                  train_generator.pattern_shape,
-                                 iou_ignore_thresh=0.5,
+                                 iou_ignore_thresh=0.25,
                                  coord_scale=1,
-                                 class_scale=0,
+                                 class_scale=1,
                                  obj_scale=1,
                                  noobj_scale=1))
 

@@ -78,8 +78,8 @@ class LossYolo3(Loss):
             if true_box.shape[0] == 0:
                 a.append(tf.ones([grid_shape, grid_shape, 3]))
             else:
-                iou = self.box_iou(pred_b_coord[b], true_box)
-                best_iou = tf.reduce_max(iou, axis=-1)
+                ious = self.box_iou(pred_b_coord[b], true_box)
+                best_iou = tf.reduce_max(ious, axis=-1)
                 ignore_mask = tf.where(best_iou < self.iou_ignore_thresh, tf.constant(1.), tf.constant(0.))
                 a.append(ignore_mask)
         final_ignore_mask = tf.stack(a)
@@ -134,7 +134,6 @@ class LossYolo3(Loss):
             lambda_no_object=1):
         object_mask = tf.squeeze(object_mask, axis=-1)
         mask_no_object = (1 - object_mask) * ignore_mask
-
         loss_object = object_mask * \
                       tf.nn.sigmoid_cross_entropy_with_logits(confidence_truth, confidence_pred)
         loss_no_object = mask_no_object * \
@@ -273,7 +272,7 @@ if __name__ == "__main__":
 
     from DataSet.batch_generator import *
 
-    config_file = r"..\config\pascalVocDebug.json"
+    config_file = r"..\config\raccoon.json"
     with open(config_file) as data_file:
         config = json.load(data_file)
 
@@ -284,13 +283,13 @@ if __name__ == "__main__":
 
     x, test_y_true = train_generator.return_next_batch()
 
-    yolo_net = get_yolo3_backend((416, 416), 20, True)
+    yolo_net = get_yolo3_backend((416, 416), 1, True)
     test_y_pred = yolo_net(x)
 
     test_loss = LossYolo3(model_cfg.input_size, train_cfg.batch_size,
                           model_cfg.anchor_array,
                           train_generator.pattern_shape,
-                          iou_ignore_thresh=0.5,
+                          iou_ignore_thresh=0.25,
                           coord_scale=1,
                           class_scale=1,
                           obj_scale=1,
@@ -299,5 +298,3 @@ if __name__ == "__main__":
     for i in range(0, 3):
         object_count = tf.math.count_nonzero(test_y_true[i][..., 4]).numpy()
         loss = test_loss.call(test_y_true[i], test_y_pred[i])
-        print("Sum Loss:\t{}\tObject:{}".format(loss, object_count))
-        print()

@@ -65,8 +65,8 @@ class BatchGenerator(object):
             # insert batch size of datas to x and y
             for batch_index in range(self.batch_size):
                 # 随机打乱标签文件名列表
-                if i == 0:
-                    np.random.shuffle(self.annot_filenames)
+                # if i == 0:
+                #     np.random.shuffle(self.annot_filenames)
 
                 # step 1: initial annotation
                 annotation = self.get_annotation(self.annot_filenames[i], self.img_dir, self.label_names)
@@ -107,13 +107,13 @@ class BatchGenerator(object):
             # insert batch size of datas to x and y
             for batch_index in range(self.batch_size):
                 # 随机打乱标签文件名列表
-                # if i == 0:
-                #     np.random.shuffle(self.annot_filenames)
+                if i == 0:
+                    np.random.shuffle(self.annot_filenames)
 
                 # step 1: initial annotation
                 annotation = self.get_annotation(self.annot_filenames[i], self.img_dir, self.label_names)
                 image_file, boxes, labels_code = annotation.image_filename, annotation.boxes, annotation.labels_code
-                print(image_file)
+
                 # step 2: initial x_inputs and update boxes
                 x_inputs[batch_index, ...], resize_boxes = self.get_image_with_enhance(image_file, boxes)
 
@@ -171,7 +171,7 @@ class BatchGenerator(object):
 
 
 if __name__ == '__main__':
-    config_file = r"..\config\pascalVocDebug.json"
+    config_file = r"..\config\raccoon.json"
     with open(config_file) as data_file:
         config = json.load(data_file)
 
