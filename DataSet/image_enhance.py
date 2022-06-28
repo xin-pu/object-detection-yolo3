@@ -36,7 +36,7 @@ class ImageEnhance(object):
         boxes = np.copy(boxes)
         if self.enhance:
             tf_image = tf.image.random_brightness(image, 0.5)
-            tf_image = tf.image.random_contrast(image, 0.1, 0.6)
+            tf_image = tf.image.random_contrast(tf_image, 0.1, 0.6)
             image = tf_image.numpy()
 
         # 3. resize image

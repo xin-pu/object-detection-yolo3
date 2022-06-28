@@ -11,7 +11,7 @@ from Nets.Layer.convolutional_unsamling import ConvolutionalUnSampling
 class HeadNet(Model):
 
     def __init__(self, n_classes=20):
-        super(HeadNet, self).__init__(name='')
+        super(HeadNet, self).__init__(name='head_net')
         self.classes = n_classes
         n_features: int = 3 * (n_classes + 5)
 

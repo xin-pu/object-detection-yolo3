@@ -20,7 +20,7 @@ def get_yolo3_backend(input_shape, num_classes, print_summary=False):
     model_output = HeadNet(num_classes)(BodyNet()(model_input))
     model = Model(inputs=model_input, outputs=model_output, name="yolov3")
     if print_summary:
-        model.summary()
+        # model.summary()
         print("Layers Number:   {0}".format(len(model.layers)))
     return model
 

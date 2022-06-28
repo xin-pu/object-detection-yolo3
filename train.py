@@ -2,11 +2,10 @@ from tensorflow.keras.optimizers import *
 from tensorflow.python.keras.callbacks import *
 
 from Loss.lossyolo3 import LossYolo3
-from Loss.lossyolo4 import LossYolo4
 from task import TaskParser, ModelInit
 
 if __name__ == "__main__":
-    task_parser = TaskParser(r'config\pascalVoc.json')
+    task_parser = TaskParser(r'config\raccoon.json')
 
     # 1. create generator
     train_generator, valid_generator = task_parser.create_generator()
@@ -39,14 +38,18 @@ if __name__ == "__main__":
 
     csv_logger = CSVLogger('log.csv', append=False)
 
-    call_backs = [checkpoint, reduce_lr, early_stopping, csv_logger]
+    call_backs = [checkpoint, csv_logger]
 
-    model.compile(optimizer=Adam(learning_rate=train_generator.learning_rate, clipnorm=0.001),
+    model.compile(optimizer=Nadam(learning_rate=train_generator.learning_rate),
                   loss=LossYolo3(train_generator.input_size,
                                  train_generator.batch_size,
                                  train_generator.anchors_array,
                                  train_generator.pattern_shape,
-                                 1))
+                                 iou_ignore_thresh=0.5,
+                                 coord_scale=1,
+                                 class_scale=0,
+                                 obj_scale=1,
+                                 noobj_scale=1))
 
     model.fit(train_generator.yield_next_batch(),
               steps_per_epoch=train_generator.steps_per_epoch,

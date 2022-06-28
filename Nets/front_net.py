@@ -111,6 +111,7 @@ class YoloDetector(object):
                     h_n = h / self.image_size
 
                     if objectness > self.obj_thresh:
+                        print("[{},{}]".format(row, col))
                         boxes.append(BoundBox(x_n, y_n, w_n, h_n, objectness, classes))
 
         return boxes
@@ -139,6 +140,7 @@ class YoloDetector(object):
         """
         # 1. sigmoid activation
         objectness_prob = sigmoid(objectness)
+
         classes_probs = sigmoid(classes)
 
         # 2. conditional probability

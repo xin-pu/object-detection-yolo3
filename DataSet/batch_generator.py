@@ -107,18 +107,18 @@ class BatchGenerator(object):
             # insert batch size of datas to x and y
             for batch_index in range(self.batch_size):
                 # 随机打乱标签文件名列表
-                if i == 0:
-                    np.random.shuffle(self.annot_filenames)
+                # if i == 0:
+                #     np.random.shuffle(self.annot_filenames)
 
                 # step 1: initial annotation
                 annotation = self.get_annotation(self.annot_filenames[i], self.img_dir, self.label_names)
                 image_file, boxes, labels_code = annotation.image_filename, annotation.boxes, annotation.labels_code
-
+                print(image_file)
                 # step 2: initial x_inputs and update boxes
-                x_inputs[batch_index, ...], boxes = self.get_image_with_enhance(image_file, boxes)
+                x_inputs[batch_index, ...], resize_boxes = self.get_image_with_enhance(image_file, boxes)
 
                 # step 3: initial y_inputs
-                for original_box, label in zip(boxes, labels_code):
+                for original_box, label in zip(resize_boxes, labels_code):
                     match_index, match_anchor = self.get_match_anchor_boxes(original_box, self.anchors_boxes)
                     lay_index, box_index = match_index // 3, match_index % 3
 
@@ -153,24 +153,25 @@ class BatchGenerator(object):
     def get_match_anchor_boxes(box, anchor_boxes):
         box = convert_to_centroid(np.array([box]))[0]
         bound_box = BoundBox(box[0], box[1], box[2], box[3])
-        return bound_box.get_match_anchor_box(anchor_boxes)
+        match_index, match_anchor = bound_box.get_match_anchor_box(anchor_boxes)
+        return match_index, match_anchor
 
     @staticmethod
     def assign_box(yolo_true_output, batch_index, lay_index, box_index, box, label):
-        center_x, center_y, _, _ = box
+        center_x, center_y, _, _, c_x, c_y = box
 
         # determine the location of the cell responsible for this object
-        grid_x = int(np.floor(center_x))
-        grid_y = int(np.floor(center_y))
+        # grid_x = int(np.floor(center_x))
+        # grid_y = int(np.floor(center_y))
 
         # assign ground truth x, y, w, h, confidence and class probability to y_batch
-        yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 0:4] = box
-        yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 4] = 1.
-        yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 5 + label] = 1
+        yolo_true_output[lay_index][batch_index, c_y, c_x, box_index, 0:4] = box[0:4]
+        yolo_true_output[lay_index][batch_index, c_y, c_x, box_index, 4] = 1.
+        yolo_true_output[lay_index][batch_index, c_y, c_x, box_index, 5 + label] = 1
 
 
 if __name__ == '__main__':
-    config_file = r"..\config\pascal_voc.json"
+    config_file = r"..\config\pascalVocDebug.json"
     with open(config_file) as data_file:
         config = json.load(data_file)
 
@@ -180,4 +181,4 @@ if __name__ == '__main__':
     train_generator = BatchGenerator(model_cfg, train_cfg, True)
 
     x, y = train_generator.return_next_batch()
-    print(y[1][0, 0, 0, :])
+    print(y[1])
