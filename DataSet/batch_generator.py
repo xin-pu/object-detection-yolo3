@@ -158,16 +158,12 @@ class BatchGenerator(object):
 
     @staticmethod
     def assign_box(yolo_true_output, batch_index, lay_index, box_index, box, label):
-        center_x, center_y, _, _, c_x, c_y = box
-
-        # determine the location of the cell responsible for this object
-        # grid_x = int(np.floor(center_x))
-        # grid_y = int(np.floor(center_y))
+        _, _, _, _, grid_x, grid_y = box
 
         # assign ground truth x, y, w, h, confidence and class probability to y_batch
-        yolo_true_output[lay_index][batch_index, c_y, c_x, box_index, 0:4] = box[0:4]
-        yolo_true_output[lay_index][batch_index, c_y, c_x, box_index, 4] = 1.
-        yolo_true_output[lay_index][batch_index, c_y, c_x, box_index, 5 + label] = 1
+        yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 0:4] = box[0:4]
+        yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 4] = 1.
+        yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 5 + label] = 1
 
 
 if __name__ == '__main__':

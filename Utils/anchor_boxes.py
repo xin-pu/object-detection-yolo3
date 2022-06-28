@@ -50,14 +50,13 @@ def convert_to_encode_box(pattern_shape, input_size, original_min_max_box, match
     # convert to centroid  box
     x, y = (b_x1 + b_x2) / 2.0, (b_y1 + b_y2) / 2.0
 
-    # determine the yolo to be responsible for this bounding box
-
     # determine the position of the bounding box on the grid
     b_x = 1. * x / input_size  # sigma(t_x) + c_x
     b_y = 1. * y / input_size  # sigma(t_y) + c_y
+    b_w = max((b_x2 - b_x1), 1) / input_size,
+    b_h = max((b_y2 - b_y1), 1) / input_size
     c_x = math.floor(x / grid_w)
     c_y = math.floor(y / grid_h)
-    b_w, b_h = max((b_x2 - b_x1), 1) / input_size, max((b_y2 - b_y1), 1) / input_size
 
     return [b_x, b_y, b_w, b_h, c_x, c_y]
 

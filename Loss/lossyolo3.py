@@ -1,5 +1,4 @@
-import tf2onnx.onnx_opset.math
-from tensorflow.keras.losses import Loss
+from tensorflow.python.keras.losses import *
 
 from Loss.loss_helper import *
 from Nets.yolo3_net import get_yolo3_backend
@@ -36,7 +35,7 @@ class LossYolo3(Loss):
         :param y_pred:  [b,13,13,anchors*25]
                         [t_x, t_y, t_w, t_h, t_confidence，t_class * 20]
         :param y_true:  [b,13,13,anchors,25]
-                        [b_x, b_y, t_w, t_h, 1/0,            class * 20]
+                        [b_x, b_y, b_w, b_h, 1/0,            class * 20]
         :return: loss
         """
 
@@ -45,58 +44,56 @@ class LossYolo3(Loss):
                        y_pred.shape[2],
                        3,
                        y_pred.shape[-1] // 3]
-        anchors_lay = self.pattern_array.index(shape_stand[1])
-        anchors_current = tf.constant(self.anchor_array[anchors_lay], dtype=float)
-        gird_pattern = self.image_size / self.pattern_array[anchors_lay]  # 采样率，每个格子像素[8,16,32]
-        grid_shape = y_pred.shape[1]
+        anchors_lay = self.pattern_array.index(shape_stand[1])  # 所属层
+        anchors_current = tf.constant(self.anchor_array[anchors_lay], dtype=float)  # 当前层的三个Anchor
+        gird_cell_size = self.image_size / self.pattern_array[anchors_lay]  # 采样率，每个格子像素[8,16,32]
+        grid_size = y_pred.shape[1]  # [52,26,13]
 
-        # Step 1 reshape y_preds from [b,13,13,anchors*25] to [b,13,13,anchors,25]
+        # Step 1 transform all pred output
+        # reshape y_preds from [b,13,13,anchors*25] to [b,13,13,anchors,25]
         y_pred = tf.reshape(y_pred, shape_stand)
+        pred_xy = y_pred[..., 0:2]
+        pred_t_coord = y_pred[..., 0:4]
 
-        # Step 2 get object mask from true
-        mask_object = tf.expand_dims(y_true[..., 4], 4)
-
-        # Step 3 convert true coord to bounding box coord
-        true_b_xy = tf.math.mod(y_true[..., 0:2] * gird_pattern, 1)
-        image_size_ = tf.reshape(tf.cast([self.image_size, self.image_size], tf.float32), [1, 1, 1, 1, 2])
-        anchors_ = image_size_ / tf.reshape(anchors_current, shape=[1, 1, 1, 3, 2])
-        true_b_wh = tf.math.log(y_true[..., 2:4] * anchors_)
-        true_b_wh = tf.where(mask_object == 1., true_b_wh, tf.zeros_like(true_b_wh))
-        true_b_coord = tf.concat([true_b_xy, true_b_wh], axis=-1)
-
-        wh_scale = tf.expand_dims(2 - y_true[..., 2] * y_true[..., 3], axis=4)  # 制衡大小框导致的loss不均衡
-
-        pred_b_xy = (tf.sigmoid(y_pred[..., 0:2]) + create_grid_xy_offset(shape_stand[0:4])) / grid_shape
+        pred_b_xy = (tf.sigmoid(pred_xy) + create_grid_xy_offset(shape_stand[0:4])) / grid_size
         pred_b_wh = tf.exp(y_pred[..., 2:4]) * create_mesh_anchor(shape_stand, anchors_current) / self.image_size
         pred_b_coord = tf.concat([pred_b_xy, pred_b_wh], axis=-1)
 
-        # Find Ignore mask
-        mask_object_bool = tf.cast(y_true[..., 4], 'bool')
-        a = []
-        for b in range(0, self.batch_size):
-            true_box = tf.boolean_mask(y_true[b, ..., 0:4], mask_object_bool[b, ...])
-            if true_box.shape[0] == 0:
-                a.append(tf.ones([grid_shape, grid_shape, 3]))
-            else:
-                ious = self.box_iou(pred_b_coord[b], true_box)
-                best_iou = tf.reduce_max(ious, axis=-1)
-                ignore_mask = tf.where(best_iou < self.iou_ignore_thresh, tf.constant(1.), tf.constant(0.))
-                a.append(ignore_mask)
-        final_ignore_mask = tf.stack(a)
+        # Step 3 convert true coord to bounding box coord
+        true_b_xy = y_true[..., 0:2]
+        true_b_wh = y_true[..., 2:4]
+        true_b_coord = tf.concat(true_b_xy, true_b_wh)
+        true_t_xy = tf.math.mod(true_b_xy * grid_size, 1)
+        true_t_wh = tf.math.log(true_b_wh * self.image_size / anchors_current)
+        true_t_wh = tf.where(tf.math.is_inf(true_t_wh), tf.zeros_like(true_t_wh), true_t_wh)
+        true_t_coord = tf.concat(true_t_xy, true_t_wh)
+
+        # Step 4 Get box loss scale and mask object
+        mask_object = tf.expand_dims(y_true[..., 4], 4)
+        box_loss_scale = tf.expand_dims(2 - true_b_wh[..., 0] * true_b_wh[..., 1], axis=-1)  # 制衡大小框导致的loss不均衡
+
+        # 4. calculate all masks
+
+        # ignore false positive when iou is over threshold
+        best_iou = tf.map_fn(
+            lambda x: tf.reduce_max(get_tf_iou(x[0], tf.boolean_mask(x[1], tf.cast(x[2], tf.bool))), axis=-1),
+            (pred_box, true_box, mask_object),
+            tf.float32)
+        mask_igore = tf.cast(best_iou < self.iou_ignore_thresh, tf.float32)
 
         # 置信度损失
         loss_confidence = self.get_confidence_loss_cross(y_true[..., 4],
                                                          y_pred[..., 4],
                                                          mask_object,
-                                                         final_ignore_mask,
+                                                         mask_igore,
                                                          self.lambda_object,
                                                          self.lambda_no_object)
         # 坐标损失
-        loss_coord = self.get_coordinate_loss(true_b_coord,
-                                              y_pred[..., 0:4],
+        loss_coord = self.get_coordinate_loss(true_t_coord,
+                                              pred_t_coord,
                                               mask_object,
                                               self.lambda_coord,
-                                              wh_scale,
+                                              box_loss_scale,
                                               model=0)
 
         # 分类损失
@@ -130,17 +127,13 @@ class LossYolo3(Loss):
             confidence_pred,
             object_mask,
             ignore_mask,
-            lambda_object=5,
+            lambda_object=1,
             lambda_no_object=1):
-        object_mask = tf.squeeze(object_mask, axis=-1)
-        mask_no_object = (1 - object_mask) * ignore_mask
-        loss_object = object_mask * \
-                      tf.nn.sigmoid_cross_entropy_with_logits(confidence_truth, confidence_pred)
-        loss_no_object = mask_no_object * \
-                         tf.nn.sigmoid_cross_entropy_with_logits(confidence_truth, confidence_pred)
 
-        confidence_loss = lambda_object * loss_object + lambda_no_object * loss_no_object
-        return tf.reduce_sum(confidence_loss, list(range(1, 4)))
+        bc_loss = binary_crossentropy(confidence_truth, confidence_pred)
+        obj_loss = lambda_object * object_mask * bc_loss + \
+                   lambda_no_object * (1 - object_mask) * ignore_mask * bc_loss
+        return tf.reduce_sum(obj_loss, list(range(1, 4)))
 
     @staticmethod
     def get_coordinate_loss(coordinate_truth,
@@ -166,11 +159,11 @@ class LossYolo3(Loss):
             xy_loss = object_mask * box_scale * cross_entropy
             wh_loss = object_mask * box_scale * 0.5 * (
                 tf.math.square(coordinate_truth[..., 0:2] - coordinate_pred[..., 0:2]))
-            loss_coord = lambda_coord * tf.reduce_sum(xy_loss + wh_loss, list(range(1, 5)))
+            loss_coord = lambda_coord * tf.reduce_sum(xy_loss + wh_loss, list(range(1, 4)))
             return loss_coord
         elif model == 1:
-            mse_loss = object_mask * (tf.square(coordinate_pred - tf.sigmoid(coordinate_truth))) * box_scale
-            loss_coord = lambda_coord * tf.reduce_sum(mse_loss, list(range(1, 5)))
+            mse_loss = object_mask * (tf.square(coordinate_pred - coordinate_truth)) * box_scale
+            loss_coord = lambda_coord * tf.reduce_sum(mse_loss, list(range(1, 4)))
             return loss_coord
 
     @staticmethod
@@ -187,20 +180,8 @@ class LossYolo3(Loss):
         @param lambda_class:
         @return:
         """
-        loss_cross_entropy = object_mask * tf.nn.sigmoid_cross_entropy_with_logits(labels=class_truth,
-                                                                                   logits=class_pred)
+        loss_cross_entropy = object_mask * tf.nn.sigmoid_cross_entropy_with_logits(class_truth, class_pred)
         return lambda_class * tf.reduce_sum(loss_cross_entropy, axis=[1, 2, 3, 4])
-
-    @staticmethod
-    def create_wh_scale(true_box_wh, anchors, image_size):
-        image_size_ = tf.reshape(tf.cast([image_size, image_size], tf.float32), [1, 1, 1, 1, 2])
-        anchors_ = tf.reshape(anchors, shape=[1, 1, 1, 3, 2])
-
-        # [0, 1]-scaled width/height
-        wh_scale = tf.exp(true_box_wh) * anchors_ / image_size_
-        # the smaller the box, the bigger the scale
-        wh_scale = tf.expand_dims(2 - wh_scale[..., 0] * wh_scale[..., 1], axis=4)
-        return wh_scale
 
     @staticmethod
     def convert_coord_to_bbox_for_pred(coord, anchors, input_shape):
