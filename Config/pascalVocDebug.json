@@ -1,0 +1,69 @@
+{
+  "model": {
+    "anchors": [
+      10,
+      13,
+      16,
+      30,
+      33,
+      23,
+      30,
+      61,
+      62,
+      45,
+      59,
+      119,
+      116,
+      90,
+      156,
+      198,
+      373,
+      326
+    ],
+    "labels": [
+      "aeroplane",
+      "bicycle",
+      "bird",
+      "boat",
+      "bottle",
+      "bus",
+      "car",
+      "cat",
+      "chair",
+      "cow",
+      "diningtable",
+      "dog",
+      "horse",
+      "motorbike",
+      "person",
+      "pottedplant",
+      "sheep",
+      "sofa",
+      "train",
+      "tvmonitor"
+    ],
+    "input_size": 416,
+    "pattern_shape": [
+      52,
+      26,
+      13
+    ]
+  },
+  "train": {
+    "num_epoch": 500,
+    "train_image_folder": "F:\\PASCALVOC\\VOC2007\\JPEGImages",
+    "train_annot_folder": "F:\\PASCALVOC\\VOC2007\\Annotations",
+    "valid_image_folder": "F:\\PASCALVOC\\VOC2007_Val\\JPEGImages",
+    "valid_annot_folder": "F:\\PASCALVOC\\VOC2007_Val\\Annotations",
+    "valid_size": 1000,
+    "batch_size": 1,
+    "learning_rate": 1E-3,
+    "save_folder": "F:\\PASCALVOC\\train_output\\pascal.h5",
+    "enhance": true,
+    "shuffle": false,
+    "random_net_size": false,
+    "pre_train": false,
+    "pretrain_weight": "F:\\PASCALVOC\\train_output\\pascal.h5",
+    "darknet_weight": "yolov3.weights"
+  }
+}

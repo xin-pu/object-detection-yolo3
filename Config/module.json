@@ -1,0 +1,50 @@
+{
+  "model": {
+    "anchors": [
+      10,
+      13,
+      16,
+      30,
+      33,
+      23,
+      30,
+      61,
+      62,
+      45,
+      59,
+      119,
+      116,
+      90,
+      156,
+      198,
+      373,
+      326
+    ],
+    "labels": [
+      "DR4"
+    ],
+    "input_size": 416,
+    "pattern_shape": [
+      52,
+      26,
+      13
+    ]
+  },
+  "train": {
+    "num_epoch": 500,
+    "train_image_folder": "F:\\Module Object Detection\\Train\\images",
+    "train_annot_folder": "F:\\Module Object Detection\\Train\\annotations",
+    "valid_image_folder": "F:\\Module Object Detection\\Val\\images",
+    "valid_annot_folder": "F:\\Module Object Detection\\Val\\annotations",
+    "valid_size": 1000,
+    "batch_size": 4,
+    "learning_rate": 1E-3,
+    "save_folder": "F:\\Module Object Detection\\train_output\\model.h5",
+    "enhance": false,
+    "shuffle": true,
+    "random_net_size": false,
+    "pre_train": false,
+    "pretrain_weight": "F:\\Module Object Detection\\train_output\\model.h5",
+    "darknet_weight": "yolov3.weights"
+  }
+}
