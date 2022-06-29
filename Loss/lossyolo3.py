@@ -65,7 +65,7 @@ class LossYolo3(Loss):
         true_t_xy = tf.math.mod(true_b_xy * grid_size, 1)
         true_t_wh = tf.math.log(true_b_wh * self.image_size / anchors_current)
         true_t_wh = tf.where(tf.math.is_inf(true_t_wh), tf.zeros_like(true_t_wh), true_t_wh)
-        true_t_coord = tf.concat(true_t_xy, true_t_wh)
+        true_t_coord = tf.concat([true_t_xy, true_t_wh], axis=-1)
 
         # Step 4 Get box loss scale and mask object and mask ignore
         box_loss_scale = tf.expand_dims(2 - true_b_wh[..., 0] * true_b_wh[..., 1], axis=-1)  # 制衡大小框导致的loss不均衡
@@ -185,7 +185,7 @@ if __name__ == "__main__":
 
     from DataSet.batch_generator import *
 
-    config_file = r"..\config\raccoon.json"
+    config_file = r"..\config\pascalVocDebug.json"
     with open(config_file) as data_file:
         config = json.load(data_file)
 
@@ -196,7 +196,7 @@ if __name__ == "__main__":
 
     x, test_y_true = train_generator.return_next_batch()
 
-    yolo_net = get_yolo3_backend((416, 416), 1, True)
+    yolo_net = get_yolo3_backend((416, 416), 20, True)
     test_y_pred = yolo_net(x)
 
     test_loss = LossYolo3(model_cfg.input_size, train_cfg.batch_size,
