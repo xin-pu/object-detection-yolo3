@@ -11,7 +11,7 @@ if __name__ == "__main__":
     train_generator, valid_generator = task_parser.create_generator()
 
     # Create Mode
-    model = task_parser.create_model(model_init=ModelInit.random)
+    model = task_parser.create_model(model_init=ModelInit.pretrain)
 
     boardFolder = "./TensorBoard"
     tensorboard_callback = TensorBoard(boardFolder, histogram_freq=1)
@@ -45,10 +45,11 @@ if __name__ == "__main__":
                                  train_generator.batch_size,
                                  train_generator.anchors_array,
                                  train_generator.pattern_shape,
+                                 train_generator.classes,
                                  iou_ignore_thresh=0.5,
                                  coord_scale=1,
-                                 class_scale=0,
-                                 obj_scale=1,
+                                 class_scale=1,
+                                 obj_scale=2,
                                  noobj_scale=1))
 
     model.fit(train_generator.yield_next_batch(),

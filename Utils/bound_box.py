@@ -3,7 +3,7 @@ from Utils.iou import *
 
 class BoundBox:
 
-    def __init__(self, x, y, w, h, object_ness=None, classes=None):
+    def __init__(self, x, y, w, h, object_ness=None, classes_ness=None, label_index=0):
         """
 Initial Bound Box with centroid rect: x, y, w ,h
         :param x:
@@ -17,13 +17,8 @@ Initial Bound Box with centroid rect: x, y, w ,h
         self.w = w
         self.h = h
         self.object_ness = object_ness
-        self.classes = classes
-
-    def get_label(self):
-        return np.argmax(self.classes)
-
-    def get_score(self):
-        return self.classes[self.get_label()]
+        self.classes_ness = classes_ness
+        self.label_index = label_index
 
     def get_iou_with_bound_box(self, bound_box):
         b1 = self.as_centroid_rect()
@@ -57,8 +52,8 @@ Initial Bound Box with centroid rect: x, y, w ,h
         info = "-" * 20 + type(self).__name__ + "-" * 20 + "\r\n"
         info += "centroid_rect:\t{}\r\n".format(self.as_centroid_rect())
         info += "min_max_rect:\t{}\r\n".format(self.as_min_max_rect())
-        info += "class:\t{}\r\n".format(self.get_label())
-        info += "score:\t{}\r\n".format(self.get_score())
+        info += "object ness:\t{}\r\n".format(self.object_ness)
+        info += "class label:\t{}---{}\r\n".format(self.label_index, self.classes_ness)
         return info
 
 

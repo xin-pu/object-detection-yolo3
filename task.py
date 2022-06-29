@@ -69,11 +69,12 @@ class TaskParser(object):
                                                                       valid_generator.data_length))
         return train_generator, valid_generator
 
-    def create_detector(self, model, object_thresh=0.5, nms_thresh=0.5):
+    def create_detector(self, model, object_thresh=0.5, class_thresh=0.5, nms_thresh=0.5):
         return YoloDetector(model,
                             anchors=self.model_config.anchor_array,
                             image_size=self.model_config.input_size,
                             obj_thresh=object_thresh,
+                            class_thresh=class_thresh,
                             nms_thresh=nms_thresh)
 
     def create_evaluator(self, model):

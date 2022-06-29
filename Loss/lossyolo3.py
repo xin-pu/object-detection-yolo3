@@ -26,6 +26,7 @@ class LossYolo3(Loss):
                  batch_size,
                  anchor_array,
                  pattern_array,
+                 classes,
                  iou_ignore_thresh=0.5,
                  obj_scale=2,
                  noobj_scale=1,
@@ -36,6 +37,7 @@ class LossYolo3(Loss):
         self.image_size = image_size
         self.batch_size = batch_size
         self.pattern_array = pattern_array
+        self.classes = classes
         self.iou_ignore_thresh = iou_ignore_thresh
         self.lambda_object = obj_scale
         self.lambda_no_object = noobj_scale
@@ -131,9 +133,10 @@ class LossYolo3(Loss):
         loss_class = self.get_class_loss(y_true[..., 5:],
                                          y_pred[..., 5:],
                                          mask_object,
-                                         self.lambda_class)
+                                         self.lambda_class,
+                                         self.classes)
         total_loss = loss_confidence + loss_coord + loss_class
-        # print("{},{}".format(loss_confidence, loss_coord, loss_class))
+        # print("{},{},{}".format(loss_confidence, loss_coord, loss_class))
         return total_loss
 
     @staticmethod
@@ -144,8 +147,13 @@ class LossYolo3(Loss):
             ignore_mask,
             lambda_object=1,
             lambda_no_object=1):
+        # bc_loss = binary_crossentropy(confidence_truth, tf.sigmoid(confidence_pred))
         bc_loss = binary_crossentropy(confidence_truth, tf.sigmoid(confidence_pred))
-        obj_loss = lambda_object * object_mask * bc_loss + lambda_no_object * (1 - object_mask) * ignore_mask * bc_loss
+
+        object_loss = object_mask * bc_loss
+        no_object_loss = (1 - object_mask) * ignore_mask * bc_loss
+
+        obj_loss = lambda_object * object_loss + lambda_no_object * no_object_loss
         return tf.reduce_sum(obj_loss, list(range(1, 4)))
 
     @staticmethod
@@ -162,12 +170,17 @@ class LossYolo3(Loss):
     def get_class_loss(class_truth,
                        class_pred,
                        object_mask,
-                       lambda_class):
-        label = tf.argmax(class_truth, axis=-1)
+                       lambda_class,
+                       classes):
         pred = tf.sigmoid(class_pred)
-        loss_cross_entropy = object_mask * sparse_categorical_crossentropy(label, pred)
-        loss_class = lambda_class * tf.reduce_sum(loss_cross_entropy, list(range(1, 4)))
-        return loss_class
+        if classes == 1:
+            return lambda_class * tf.reduce_sum(object_mask * binary_crossentropy(class_truth, pred), list(range(1, 4)))
+        else:
+            label = tf.argmax(class_truth, axis=-1)
+
+            loss_cross_entropy = object_mask * sparse_categorical_crossentropy(label, pred)
+            loss_class = lambda_class * tf.reduce_sum(loss_cross_entropy, list(range(1, 4)))
+            return loss_class
 
     @staticmethod
     def convert_coord_to_bbox_for_pred(coord, anchors, input_shape):
@@ -237,6 +250,7 @@ if __name__ == "__main__":
     test_loss = LossYolo3(model_cfg.input_size, train_cfg.batch_size,
                           model_cfg.anchor_array,
                           train_generator.pattern_shape,
+                          train_generator.classes,
                           iou_ignore_thresh=0.5,
                           coord_scale=1,
                           class_scale=1,
@@ -245,4 +259,3 @@ if __name__ == "__main__":
 
     for i in range(0, 3):
         loss = test_loss.call(test_y_true[i], test_y_pred[i])
-        print(loss)
