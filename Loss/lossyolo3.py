@@ -68,9 +68,11 @@ class LossYolo3(Loss):
         # reshape y_pred from [b,13,13,anchors*25] to [b,13,13,anchors,25]
         y_pred = tf.reshape(y_pred, shape_stand)
         pred_xy = y_pred[..., 0:2]
-        pred_t_coord = y_pred[..., 0:4]
+        pred_wh = y_pred[..., 2:4]
+        pred_xy_coord = tf.sigmoid(pred_xy)
+        pred_t_coord = tf.concat([pred_xy_coord, pred_wh], axis=-1)
 
-        pred_b_xy = (tf.sigmoid(pred_xy) + create_grid_xy_offset(shape_stand[0:4])) / grid_size
+        pred_b_xy = (pred_xy_coord + create_grid_xy_offset(shape_stand[0:4])) / grid_size
         pred_b_wh = tf.exp(y_pred[..., 2:4]) * create_mesh_anchor(shape_stand, anchors_current) / self.image_size
         pred_b_coord = tf.concat([pred_b_xy, pred_b_wh], axis=-1)
 

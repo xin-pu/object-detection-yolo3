@@ -47,7 +47,7 @@ if __name__ == "__main__":
                                  train_generator.pattern_shape,
                                  iou_ignore_thresh=0.5,
                                  coord_scale=1,
-                                 class_scale=1,
+                                 class_scale=0,
                                  obj_scale=1,
                                  noobj_scale=1))
 

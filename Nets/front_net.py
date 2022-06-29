@@ -1,5 +1,5 @@
 import cv2
-
+import tensorflow as tf
 from Utils.bound_box import BoundBox, nms_boxes
 from Utils.convert import *
 
@@ -21,7 +21,7 @@ class YoloDetector(object):
         self.obj_thresh = obj_thresh
         self.nms_thresh = nms_thresh
 
-    def detect_from_file(self, image_source, cls_threshold=0.5):
+    def detect_from_file(self, image_source, cls_threshold=0.4):
         image = cv2.imread(image_source)
         image = np.array(image)
         return self.detect(image, cls_threshold)
@@ -94,25 +94,29 @@ class YoloDetector(object):
         n_rows, n_cols = y_pre_one_scale.shape[:2]
         y_pre_one_scale = y_pre_one_scale.reshape((n_rows, n_cols, nb_box, -1))
         boxes = []
-        for row in range(n_rows):
-            for col in range(n_cols):
-                for b in range(nb_box):
 
-                    # 1. decode
-                    x, y, w, h = self.decode_coordinate(y_pre_one_scale, row, col, b, anchors[b])
-                    objectness, classes = self.activate_probs(y_pre_one_scale[row, col, b, IDX_OBJECT_NESS],
-                                                              y_pre_one_scale[row, col, b, IDX_CLASS_PROB:],
-                                                              self.obj_thresh)
-
-                    # 2. scale normalize
-                    x_n = x / n_cols
-                    y_n = y / n_rows
-                    w_n = w / self.image_size
-                    h_n = h / self.image_size
-
-                    if objectness > self.obj_thresh:
-                        print("[{},{}]".format(row, col))
-                        boxes.append(BoundBox(x_n, y_n, w_n, h_n, objectness, classes))
+        objectness = tf.squeeze(tf.sigmoid(y_pre_one_scale[..., 4:5]), axis=-1)
+        pro_box = tf.boolean_mask(y_pre_one_scale, objectness > self.obj_thresh)
+        print(pro_box)
+        # for row in range(n_rows):
+        #     for col in range(n_cols):
+        #         for b in range(nb_box):
+        #
+        #             # 1. decode
+        #             x, y, w, h = self.decode_coordinate(y_pre_one_scale, row, col, b, anchors[b])
+        #             objectness, classes = self.activate_probs(y_pre_one_scale[row, col, b, IDX_OBJECT_NESS],
+        #                                                       y_pre_one_scale[row, col, b, IDX_CLASS_PROB:],
+        #                                                       self.obj_thresh)
+        #
+        #             # 2. scale normalize
+        #             x_n = x / n_cols
+        #             y_n = y / n_rows
+        #             w_n = w / self.image_size
+        #             h_n = h / self.image_size
+        #
+        #             if objectness > self.obj_thresh:
+        #                 print("[{},{}]".format(row, col))
+        #                 boxes.append(BoundBox(x_n, y_n, w_n, h_n, objectness, classes))
 
         return boxes
 
@@ -120,10 +124,10 @@ class YoloDetector(object):
     def decode_coordinate(netout, row, col, b, anchors):
         x, y, w, h = netout[row, col, b, :IDX_H + 1]
 
-        x = col + sigmoid(x)
-        y = row + sigmoid(y)
-        w = anchors[0] * np.exp(w)
-        h = anchors[1] * np.exp(h)
+        x = col + tf.sigmoid(x)
+        y = row + tf.sigmoid(y)
+        w = anchors[0] * tf.exp(w)
+        h = anchors[1] * tf.exp(h)
 
         return x, y, w, h
 
