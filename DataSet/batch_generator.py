@@ -65,13 +65,13 @@ class BatchGenerator(object):
             # insert batch size of datas to x and y
             for batch_index in range(self.batch_size):
                 # 随机打乱标签文件名列表
-                # if i == 0:
-                #     np.random.shuffle(self.annot_filenames)
+                if i == 0:
+                    np.random.shuffle(self.annot_filenames)
 
                 # step 1: initial annotation
                 annotation = self.get_annotation(self.annot_filenames[i], self.img_dir, self.label_names)
                 image_file, boxes, labels_code = annotation.image_filename, annotation.boxes, annotation.labels_code
-
+              
                 # step 2: initial x_inputs and update boxes
                 x_inputs[batch_index, ...], boxes = self.get_image_with_enhance(image_file, boxes)
 
@@ -107,12 +107,13 @@ class BatchGenerator(object):
             # insert batch size of datas to x and y
             for batch_index in range(self.batch_size):
                 # 随机打乱标签文件名列表
-                if i == 0:
-                    np.random.shuffle(self.annot_filenames)
+                # if i == 0:
+                #     np.random.shuffle(self.annot_filenames)
 
                 # step 1: initial annotation
                 annotation = self.get_annotation(self.annot_filenames[i], self.img_dir, self.label_names)
                 image_file, boxes, labels_code = annotation.image_filename, annotation.boxes, annotation.labels_code
+                print(image_file)
 
                 # step 2: initial x_inputs and update boxes
                 x_inputs[batch_index, ...], resize_boxes = self.get_image_with_enhance(image_file, boxes)
@@ -160,7 +161,6 @@ class BatchGenerator(object):
     def assign_box(yolo_true_output, batch_index, lay_index, box_index, box, label):
         _, _, _, _, grid_x, grid_y = box
 
-        # assign ground truth x, y, w, h, confidence and class probability to y_batch
         yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 0:4] = box[0:4]
         yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 4] = 1.
         yolo_true_output[lay_index][batch_index, grid_y, grid_x, box_index, 5 + label] = 1

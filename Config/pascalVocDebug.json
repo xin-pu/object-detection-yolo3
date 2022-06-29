@@ -59,7 +59,7 @@
     "batch_size": 1,
     "learning_rate": 1E-3,
     "save_folder": "F:\\PASCALVOC\\train_output\\pascal.h5",
-    "enhance": true,
+    "enhance": false,
     "shuffle": false,
     "random_net_size": false,
     "pre_train": false,

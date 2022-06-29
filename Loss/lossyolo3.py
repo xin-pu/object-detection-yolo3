@@ -5,6 +5,21 @@ from Nets.yolo3_net import get_yolo3_backend
 from Utils.tf_iou import get_tf_iou
 
 
+def broadcast_iou(box_1, box_2):
+    # box_1: (..., (x1, y1, x2, y2))
+    # box_2: (N, (x1, y1, x2, y2))
+
+    # broadcast boxes
+    box_1 = tf.expand_dims(box_1, -2)
+    box_2 = tf.expand_dims(box_2, 0)
+
+    new_shape = tf.broadcast_dynamic_shape(box_1.shape, box_2.shape)
+    box_1 = tf.broadcast_to(box_1, new_shape)
+    box_2 = tf.broadcast_to(box_2, new_shape)
+
+    return get_tf_iou(box_1, box_2)
+
+
 class LossYolo3(Loss):
     def __init__(self,
                  image_size,
@@ -62,28 +77,47 @@ class LossYolo3(Loss):
         # Step 3 convert true coord to bounding box coord
         true_b_xy = y_true[..., 0:2]
         true_b_wh = y_true[..., 2:4]
+        true_b_coord = tf.concat([true_b_xy, true_b_wh], axis=-1)
         true_t_xy = tf.math.mod(true_b_xy * grid_size, 1)
         true_t_wh = tf.math.log(true_b_wh * self.image_size / anchors_current)
         true_t_wh = tf.where(tf.math.is_inf(true_t_wh), tf.zeros_like(true_t_wh), true_t_wh)
         true_t_coord = tf.concat([true_t_xy, true_t_wh], axis=-1)
 
         # Step 4 Get box loss scale and mask object and mask ignore
-        box_loss_scale = tf.expand_dims(2 - true_b_wh[..., 0] * true_b_wh[..., 1], axis=-1)  # 制衡大小框导致的loss不均衡
+        box_loss_scale = 2 - true_b_wh[..., 0] * true_b_wh[..., 1]  # 制衡大小框导致的loss不均衡
+        mask_object = y_true[..., 4]
 
-        mask_object = tf.expand_dims(y_true[..., 4], 4)
+        # true_b_coord_filter = tf.boolean_mask(true_b_coord, tf.cast(mask_object, tf.bool))
+        # if true_b_coord_filter.shape[0] == 0:
+        #     shape = shape_stand[0:4]
+        #     best_iou = tf.zeros(shape=shape)
+        #     mask_ignore = tf.cast(best_iou < self.iou_ignore_thresh, tf.float32)
+        # else:
+        #     best_iou = tf.map_fn(
+        #         lambda a: tf.reduce_max(broadcast_iou(a[0], a[1]), axis=-1),
+        #         (pred_b_coord, true_b_coord_filter), tf.float32)
+        #     mask_ignore = tf.cast(best_iou < self.iou_ignore_thresh, tf.float32)
 
-        best_iou = tf.map_fn(
-            lambda x: tf.reduce_max(get_tf_iou(x[0], tf.boolean_mask(x[1], tf.cast(x[2], tf.bool))), axis=-1),
-            (pred_b_coord, true_t_coord, mask_object), tf.float32)
-        mask_ignore = tf.cast(best_iou < self.iou_ignore_thresh, tf.float32)
+        a = []
+        for b in range(0, self.batch_size):
+            true_b_coord_filter = tf.boolean_mask(y_true[b, ..., 0:4], mask_object[b, ...])
+            if true_b_coord_filter.shape[0] == 0:
+                a.append(tf.ones([grid_size, grid_size, 3]))
+            else:
+                iou = self.box_iou(pred_b_coord[b], true_b_coord_filter)
+                best_iou = tf.reduce_max(iou, axis=-1)
+                ignore_mask = tf.where(best_iou < self.iou_ignore_thresh, tf.constant(1.), tf.constant(0.))
+                a.append(ignore_mask)
+        mask_ignore = tf.stack(a)
 
         # 置信度损失
-        loss_confidence = self.get_confidence_loss_cross(y_true[..., 4],
-                                                         y_pred[..., 4],
+        loss_confidence = self.get_confidence_loss_cross(y_true[..., 4:5],
+                                                         y_pred[..., 4:5],
                                                          mask_object,
                                                          mask_ignore,
                                                          self.lambda_object,
                                                          self.lambda_no_object)
+
         # 坐标损失
         loss_coord = self.get_coordinate_loss(true_t_coord,
                                               pred_t_coord,
@@ -97,6 +131,7 @@ class LossYolo3(Loss):
                                          mask_object,
                                          self.lambda_class)
         total_loss = loss_confidence + loss_coord + loss_class
+        # print("{},{}".format(loss_confidence, loss_coord, loss_class))
         return total_loss
 
     @staticmethod
@@ -117,7 +152,7 @@ class LossYolo3(Loss):
                             object_mask,
                             lambda_coord,
                             box_scale):
-        mse_loss = object_mask * (tf.reduce_sum(tf.square(coordinate_pred - coordinate_truth), axis=-1)) * box_scale
+        mse_loss = object_mask * tf.reduce_sum(tf.square(coordinate_pred - coordinate_truth), axis=-1) * box_scale
         loss_coord = lambda_coord * tf.reduce_sum(mse_loss, list(range(1, 4)))
         return loss_coord
 
@@ -126,8 +161,10 @@ class LossYolo3(Loss):
                        class_pred,
                        object_mask,
                        lambda_class):
-        loss_cross_entropy = object_mask * tf.nn.sigmoid_cross_entropy_with_logits(class_truth, class_pred)
-        return lambda_class * tf.reduce_sum(loss_cross_entropy, list(range(1, 4)))
+        label = tf.argmax(class_truth, axis=-1)
+        loss_cross_entropy = object_mask * sparse_categorical_crossentropy(label, class_pred)
+        loss_class = lambda_class * tf.reduce_sum(loss_cross_entropy, list(range(1, 4)))
+        return loss_class
 
     @staticmethod
     def convert_coord_to_bbox_for_pred(coord, anchors, input_shape):
@@ -177,11 +214,6 @@ class LossYolo3(Loss):
 
 
 if __name__ == "__main__":
-    # a = tf.constant([[1, 2], [2, 3]])
-    # mask = tf.constant([True, False])
-    # b = tf.boolean_mask(a, mask)
-    # print(b)
-    # pass
 
     from DataSet.batch_generator import *
 
@@ -202,12 +234,14 @@ if __name__ == "__main__":
     test_loss = LossYolo3(model_cfg.input_size, train_cfg.batch_size,
                           model_cfg.anchor_array,
                           train_generator.pattern_shape,
-                          iou_ignore_thresh=0.25,
+                          iou_ignore_thresh=0.5,
                           coord_scale=1,
                           class_scale=1,
                           obj_scale=1,
                           noobj_scale=1)
 
     for i in range(0, 3):
-        object_count = tf.math.count_nonzero(test_y_true[i][..., 4]).numpy()
         loss = test_loss.call(test_y_true[i], test_y_pred[i])
+        print(loss)
+        loss = test_loss.call(test_y_true[i], test_y_pred[i])
+        print(loss)

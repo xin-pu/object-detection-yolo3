@@ -14,11 +14,11 @@ def predict(task, image, model_initial):
 
     # 2. create detector
     print("{0}\tCreate Detector\t{0}".format("-" * 30))
-    detector = task_parser.create_detector(model, object_thresh=0.2, nms_thresh=0.5)
+    detector = task_parser.create_detector(model, object_thresh=0.5, nms_thresh=0.5)
 
     # 3. run detection
     print("{0}\tRun Detection\t{0}".format("-" * 30))
-    boxes, labels, probs = detector.detect_from_file(image, cls_threshold=0)
+    boxes, labels, probs = detector.detect_from_file(image, cls_threshold=0.5)
     print(boxes, labels, probs)
 
     # 4. draw result
