@@ -5,13 +5,13 @@ from Loss.lossyolo3 import LossYolo3
 from task import TaskParser, ModelInit
 
 if __name__ == "__main__":
-    task_parser = TaskParser(r'config\raccoon.json')
+    task_parser = TaskParser(r'config\pascalVoc.json')
 
     # 1. create generator
     train_generator, valid_generator = task_parser.create_generator()
 
     # Create Mode
-    model = task_parser.create_model(model_init=ModelInit.pretrain)
+    model = task_parser.create_model(model_init=ModelInit.random)
 
     boardFolder = "./TensorBoard"
     tensorboard_callback = TensorBoard(boardFolder, histogram_freq=1)
@@ -49,7 +49,7 @@ if __name__ == "__main__":
                                  iou_ignore_thresh=0.5,
                                  coord_scale=1,
                                  class_scale=1,
-                                 obj_scale=2,
+                                 obj_scale=1,
                                  noobj_scale=1))
 
     model.fit(train_generator.yield_next_batch(),

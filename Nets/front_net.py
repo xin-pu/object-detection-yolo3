@@ -46,7 +46,8 @@ class YoloDetector(object):
             filter_out = tf.boolean_mask(decode_out, mask)
             if filter_out.shape[0] != 0:
                 all_filter_out.append(filter_out)
-
+        if len(all_filter_out) == 0:
+            return []
         all_prob = np.vstack(all_filter_out)
         print(all_prob.shape[0])
 

@@ -22,8 +22,11 @@ def predict(task, image, model_initial):
     # 3. run detection
     print("{0}\tRun Detection\t{0}".format("-" * 30))
     boxes = detector.detect_from_file(image)
+    if len(boxes) == 0:
+        print("don't find object.")
+        return
 
-    # 4. draw result
+        # 4. draw result
     image = cv2.imread(image)
     for box in boxes:
         min_max = box.as_min_max_rect()
@@ -36,7 +39,7 @@ def predict(task, image, model_initial):
                     lineType=cv2.LINE_AA)
 
     cv2.imshow("Result", image)
-    cv2.waitKey(0)
+    cv2.waitKey(5000)
 
 
 if __name__ == '__main__':
@@ -44,5 +47,5 @@ if __name__ == '__main__':
     #         ModelInit.pretrain)
 
     # "F:\Raccoon\images\raccoon-170.jpg" 199, 193, 184, 170
-    predict(r'config\raccoon.json', r"F:\Raccoon\images\raccoon-2.jpg",
+    predict(r'config\raccoon.json', r"F:\Raccoon\images\raccoon-193.jpg",
             ModelInit.pretrain)

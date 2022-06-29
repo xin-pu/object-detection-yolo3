@@ -72,7 +72,7 @@ class LossYolo3(Loss):
         pred_xy = y_pred[..., 0:2]
         pred_wh = y_pred[..., 2:4]
         pred_xy_coord = tf.sigmoid(pred_xy)
-        pred_t_coord = tf.concat([pred_xy_coord, pred_wh], axis=-1)
+        pred_t_coord = tf.concat([pred_xy_coord, pred_wh], axis=-1)  # Coord Loss
 
         pred_b_xy = (pred_xy_coord + create_grid_xy_offset(shape_stand[0:4])) / grid_size
         pred_b_wh = tf.exp(y_pred[..., 2:4]) * create_mesh_anchor(shape_stand, anchors_current) / self.image_size
@@ -85,7 +85,7 @@ class LossYolo3(Loss):
         true_t_xy = tf.math.mod(true_b_xy * grid_size, 1)
         true_t_wh = tf.math.log(true_b_wh * self.image_size / anchors_current)
         true_t_wh = tf.where(tf.math.is_inf(true_t_wh), tf.zeros_like(true_t_wh), true_t_wh)
-        true_t_coord = tf.concat([true_t_xy, true_t_wh], axis=-1)
+        true_t_coord = tf.concat([true_t_xy, true_t_wh], axis=-1)  # Coord Loss
 
         # Step 4 Get box loss scale and mask object and mask ignore
         box_loss_scale = 2 - true_b_wh[..., 0] * true_b_wh[..., 1]  # 制衡大小框导致的loss不均衡
