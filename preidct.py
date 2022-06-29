@@ -38,9 +38,9 @@ def predict(task, image, model_initial):
 if __name__ == '__main__':
     # predict(r'config\coco.json', r"F:\PASCALVOC\VOC2007\JPEGImages\000012.jpg", ModelInit.original)
 
-    # predict(r'config\pascalVoc.json', r"F:\PASCALVOC\VOC2007_Val\JPEGImages\006926.jpg",
-    #         ModelInit.pretrain)
+    predict(r'config\pascalVoc.json', r"F:\PASCALVOC\VOC2007_Val\JPEGImages\006926.jpg",
+            ModelInit.pretrain)
 
     # "F:\Raccoon\images\raccoon-170.jpg" 199, 193, 184, 170
-    predict(r'config\raccoon.json', r"F:\Raccoon\images\raccoon-2.jpg",
-            ModelInit.pretrain)
+    # predict(r'config\raccoon.json', r"F:\Raccoon\images\raccoon-2.jpg",
+    #         ModelInit.pretrain)

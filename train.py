@@ -5,7 +5,7 @@ from Loss.lossyolo3 import LossYolo3
 from task import TaskParser, ModelInit
 
 if __name__ == "__main__":
-    task_parser = TaskParser(r'config\pascalVoc.json')
+    task_parser = TaskParser(r'config\raccoon.json')
 
     # 1. create generator
     train_generator, valid_generator = task_parser.create_generator()

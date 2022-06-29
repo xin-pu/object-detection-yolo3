@@ -142,7 +142,7 @@ class LossYolo3(Loss):
             ignore_mask,
             lambda_object=1,
             lambda_no_object=1):
-        bc_loss = binary_crossentropy(confidence_truth, confidence_pred)
+        bc_loss = binary_crossentropy(confidence_truth, tf.sigmoid(confidence_pred))
         obj_loss = lambda_object * object_mask * bc_loss + lambda_no_object * (1 - object_mask) * ignore_mask * bc_loss
         return tf.reduce_sum(obj_loss, list(range(1, 4)))
 
@@ -162,7 +162,8 @@ class LossYolo3(Loss):
                        object_mask,
                        lambda_class):
         label = tf.argmax(class_truth, axis=-1)
-        loss_cross_entropy = object_mask * sparse_categorical_crossentropy(label, class_pred)
+        pred = tf.sigmoid(class_pred)
+        loss_cross_entropy = object_mask * sparse_categorical_crossentropy(label, pred)
         loss_class = lambda_class * tf.reduce_sum(loss_cross_entropy, list(range(1, 4)))
         return loss_class
 
@@ -241,7 +242,5 @@ if __name__ == "__main__":
                           noobj_scale=1)
 
     for i in range(0, 3):
-        loss = test_loss.call(test_y_true[i], test_y_pred[i])
-        print(loss)
         loss = test_loss.call(test_y_true[i], test_y_pred[i])
         print(loss)
