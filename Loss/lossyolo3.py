@@ -81,7 +81,6 @@ class LossYolo3(Loss):
         # Step 3 convert true coord to bounding box coord
         true_b_xy = y_true[..., 0:2]
         true_b_wh = y_true[..., 2:4]
-        true_b_coord = tf.concat([true_b_xy, true_b_wh], axis=-1)
         true_t_xy = tf.math.mod(true_b_xy * grid_size, 1)
         true_t_wh = tf.math.log(true_b_wh * self.image_size / anchors_current)
         true_t_wh = tf.where(tf.math.is_inf(true_t_wh), tf.zeros_like(true_t_wh), true_t_wh)
@@ -90,17 +89,6 @@ class LossYolo3(Loss):
         # Step 4 Get box loss scale and mask object and mask ignore
         box_loss_scale = 2 - true_b_wh[..., 0] * true_b_wh[..., 1]  # 制衡大小框导致的loss不均衡
         mask_object = y_true[..., 4]
-
-        # true_b_coord_filter = tf.boolean_mask(true_b_coord, tf.cast(mask_object, tf.bool))
-        # if true_b_coord_filter.shape[0] == 0:
-        #     shape = shape_stand[0:4]
-        #     best_iou = tf.zeros(shape=shape)
-        #     mask_ignore = tf.cast(best_iou < self.iou_ignore_thresh, tf.float32)
-        # else:
-        #     best_iou = tf.map_fn(
-        #         lambda a: tf.reduce_max(broadcast_iou(a[0], a[1]), axis=-1),
-        #         (pred_b_coord, true_b_coord_filter), tf.float32)
-        #     mask_ignore = tf.cast(best_iou < self.iou_ignore_thresh, tf.float32)
 
         a = []
         for b in range(0, self.batch_size):
@@ -176,9 +164,7 @@ class LossYolo3(Loss):
         if classes == 1:
             return lambda_class * tf.reduce_sum(object_mask * binary_crossentropy(class_truth, pred), list(range(1, 4)))
         else:
-            label = tf.argmax(class_truth, axis=-1)
-
-            loss_cross_entropy = object_mask * sparse_categorical_crossentropy(label, pred)
+            loss_cross_entropy = object_mask * binary_crossentropy(class_truth, pred)
             loss_class = lambda_class * tf.reduce_sum(loss_cross_entropy, list(range(1, 4)))
             return loss_class
 
@@ -240,7 +226,7 @@ if __name__ == "__main__":
     model_cfg = ModelConfig(config["model"])
     train_cfg = TrainConfig(config["train"])
 
-    train_generator = BatchGenerator(model_cfg, train_cfg, True)
+    train_generator = BatchGenerator(model_cfg, train_cfg, False)
 
     x, test_y_true = train_generator.return_next_batch()
 

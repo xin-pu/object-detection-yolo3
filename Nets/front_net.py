@@ -49,7 +49,6 @@ class YoloDetector(object):
         if len(all_filter_out) == 0:
             return []
         all_prob = np.vstack(all_filter_out)
-        print(all_prob.shape[0])
 
         # 4. correct_yolo_boxes
         all_prob[..., 0] = all_prob[..., 0] * image_w
@@ -57,11 +56,20 @@ class YoloDetector(object):
         all_prob[..., 1] = all_prob[..., 1] * image_h
         all_prob[..., 3] = all_prob[..., 3] * image_h
 
-        print(1)
+        # 5. nms boxes
 
-        # 5. Convert to Boxes
+        bbox = all_prob[..., 0:4]
+        scores = all_prob[..., 4] * all_prob[..., 5]
+        selected_indices, selected_scores = tf.image.non_max_suppression_with_scores(bbox,
+                                                                                     scores,
+                                                                                     100,
+                                                                                     iou_threshold=self.nms_thresh)
+        count_before_nms = all_prob.shape[0]
+        count_after_nms = len(selected_indices)
+        print("{} non max suppression => {}".format(count_before_nms, count_after_nms))
+        # 6. Convert to Boxes
         boxes = []
-        for i in range(0, all_prob.shape[0]):
+        for i in selected_indices:
             box = BoundBox(all_prob[i][0],
                            all_prob[i][1],
                            all_prob[i][2],
@@ -72,30 +80,8 @@ class YoloDetector(object):
             print(box)
             boxes.append(box)
 
-        # 5. nms boxes
-
         # 6. return boxes
         return boxes
-
-    def detect(self, image, cls_threshold):
-        pass
-        # # 2. Predict =>
-        #
-        # # 3.Resolve and Get Boxes
-        # all_boxes = self.post_process(yolo_res, image_h, image_w)
-        # print(len(all_boxes))
-        #
-        # if len(all_boxes) > 0:
-        #     boxes, probs = convert_boxes_to_centroid_boxes(all_boxes)
-        #     boxes = convert_to_minmax(boxes)
-        #     labels = np.array([b.get_label() for b in all_boxes])
-        #
-        #     boxes = boxes[probs >= cls_threshold]
-        #     labels = labels[probs >= cls_threshold]
-        #     probs = probs[probs >= cls_threshold]
-        # else:
-        #     boxes, labels, probs = [], [], []
-        # return boxes, labels, probs
 
     def post_process(self, yolo_res, original_height, original_width):
         boxes = []

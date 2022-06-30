@@ -30,7 +30,7 @@ class BatchGenerator(object):
             else self.get_ann_filenames()[0:train_configs.valid_size]
 
         self.learning_rate = train_configs.learning_rate
-        self.enhance = train_configs.enhance
+        self.enhance = train_configs.enhance if train_batch else False
         self.shuffle = train_configs.shuffle
         self.batch_size = batch_size = train_configs.batch_size
         self.steps_per_epoch = int(len(self.annot_filenames) / batch_size)
@@ -107,8 +107,8 @@ class BatchGenerator(object):
             # insert batch size of datas to x and y
             for batch_index in range(self.batch_size):
                 # 随机打乱标签文件名列表
-                if i == 0:
-                    np.random.shuffle(self.annot_filenames)
+                # if i == 0:
+                #     np.random.shuffle(self.annot_filenames)
 
                 # step 1: initial annotation
                 annotation = self.get_annotation(self.annot_filenames[i], self.img_dir, self.label_names)

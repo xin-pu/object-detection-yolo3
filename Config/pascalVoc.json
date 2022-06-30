@@ -51,19 +51,19 @@
   },
   "train": {
     "num_epoch": 500,
-    "train_image_folder": "F:\\PASCALVOC\\VOC2007\\JPEGImages",
-    "train_annot_folder": "F:\\PASCALVOC\\VOC2007\\Annotations",
+    "train_image_folder": "F:\\PASCALVOC\\VOC2012\\JPEGImages",
+    "train_annot_folder": "F:\\PASCALVOC\\VOC2012\\Annotations",
     "valid_image_folder": "F:\\PASCALVOC\\VOC2007_Val\\JPEGImages",
     "valid_annot_folder": "F:\\PASCALVOC\\VOC2007_Val\\Annotations",
-    "valid_size": 1000,
-    "batch_size": 16,
+    "valid_size": 200,
+    "batch_size": 32,
     "learning_rate": 1E-3,
-    "save_folder": "F:\\PASCALVOC\\train_output\\pascal.h5",
+    "save_folder": "F:\\PASCALVOC\\train_output\\pascal_1.h5",
     "enhance": true,
     "shuffle": true,
     "random_net_size": false,
     "pre_train": false,
-    "pretrain_weight": "F:\\PASCALVOC\\train_output\\pascal.h5",
+    "pretrain_weight": "F:\\PASCALVOC\\train_output\\pascal_1.h5",
     "darknet_weight": "yolov3.weights"
   }
 }

@@ -5,7 +5,7 @@ from Loss.lossyolo3 import LossYolo3
 from task import TaskParser, ModelInit
 
 if __name__ == "__main__":
-    task_parser = TaskParser(r'config\pascalVoc.json')
+    task_parser = TaskParser(r'config\raccoon.json')
 
     # 1. create generator
     train_generator, valid_generator = task_parser.create_generator()
@@ -17,7 +17,7 @@ if __name__ == "__main__":
     tensorboard_callback = TensorBoard(boardFolder, histogram_freq=1)
 
     checkpoint = ModelCheckpoint(train_generator.save_folder,
-                                 monitor='val_loss',
+                                 monitor='loss',
                                  save_weights_only=True,
                                  save_best_only=True,
                                  save_freq='epoch',
@@ -25,8 +25,8 @@ if __name__ == "__main__":
                                  mode='min')
 
     reduce_lr = ReduceLROnPlateau(monitor='val_loss',
-                                  factor=0.1,
-                                  patience=4,
+                                  factor=0.5,
+                                  patience=25,
                                   verbose=1,
                                   mode='min')
 
@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     csv_logger = CSVLogger('log.csv', append=False)
 
-    call_backs = [checkpoint, csv_logger]
+    call_backs = [checkpoint, csv_logger, reduce_lr]
 
     model.compile(optimizer=Nadam(learning_rate=train_generator.learning_rate),
                   loss=LossYolo3(train_generator.input_size,
@@ -50,7 +50,7 @@ if __name__ == "__main__":
                                  coord_scale=1,
                                  class_scale=1,
                                  obj_scale=1,
-                                 noobj_scale=1))
+                                 noobj_scale=0.5))
 
     model.fit(train_generator.yield_next_batch(),
               steps_per_epoch=train_generator.steps_per_epoch,
