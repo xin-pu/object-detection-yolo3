@@ -33,10 +33,6 @@ create anchor_boxes by array
 def convert_to_encode_box(pattern_shape, input_size, original_min_max_box, match_anchor_box):
     """
     convert to box used for prediction
-    b_x = sigma(t_x) + c_x
-    b_y = sigma(t_y) + c_y
-    b_w = p_w * e^t_w   => t_w = ln(b_w / p_w)
-    b_h = p_h * e^t_h   => t_h = ln(b_h / p_h)
     :param pattern_shape: 52 or 26 or 13
     :param original_min_max_box: min,max box
     :param match_anchor_box: match centroid box
@@ -51,8 +47,8 @@ def convert_to_encode_box(pattern_shape, input_size, original_min_max_box, match
     x, y = (b_x1 + b_x2) / 2.0, (b_y1 + b_y2) / 2.0
 
     # determine the position of the bounding box on the grid
-    b_x = 1. * x / input_size  # sigma(t_x) + c_x
-    b_y = 1. * y / input_size  # sigma(t_y) + c_y
+    b_x = 1. * x / input_size
+    b_y = 1. * y / input_size
     b_w = max((b_x2 - b_x1), 1) / input_size
     b_h = max((b_y2 - b_y1), 1) / input_size
     c_x = math.floor(x / grid_w)
