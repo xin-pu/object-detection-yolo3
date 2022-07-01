@@ -160,11 +160,14 @@ class LossYolo3(Loss):
                        object_mask,
                        lambda_class,
                        classes):
-        pred = tf.sigmoid(class_pred)
+        class_prob_pred = tf.sigmoid(class_pred)
         if classes == 1:
-            return lambda_class * tf.reduce_sum(object_mask * binary_crossentropy(class_truth, pred), list(range(1, 4)))
+            return lambda_class * tf.reduce_sum(object_mask * binary_crossentropy(class_truth, class_prob_pred),
+                                                list(range(1, 4)))
         else:
-            loss_cross_entropy = object_mask * binary_crossentropy(class_truth, pred)
+            # label = tf.argmax(class_truth, axis=-1)
+            loss_cross_entropy = object_mask * binary_crossentropy(class_truth, class_prob_pred)
+            # print(tf.reduce_sum(class_pred, axis=-1))
             loss_class = lambda_class * tf.reduce_sum(loss_cross_entropy, list(range(1, 4)))
             return loss_class
 

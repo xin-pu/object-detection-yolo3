@@ -5,13 +5,13 @@ from Loss.lossyolo3 import LossYolo3
 from task import TaskParser, ModelInit
 
 if __name__ == "__main__":
-    task_parser = TaskParser(r'config\raccoon.json')
+    task_parser = TaskParser(r'config\pascalVoc.json')
 
     # 1. create generator
     train_generator, valid_generator = task_parser.create_generator()
 
     # Create Mode
-    model = task_parser.create_model(model_init=ModelInit.random)
+    model = task_parser.create_model(model_init=ModelInit.pretrain)
 
     boardFolder = "./TensorBoard"
     tensorboard_callback = TensorBoard(boardFolder, histogram_freq=1)
@@ -24,30 +24,30 @@ if __name__ == "__main__":
                                  verbose=1,
                                  mode='min')
 
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss',
-                                  factor=0.5,
-                                  patience=25,
+    reduce_lr = ReduceLROnPlateau(monitor='loss',
+                                  factor=0.1,
+                                  patience=20,
                                   verbose=1,
                                   mode='min')
 
-    early_stopping = EarlyStopping(monitor='val_loss',
+    early_stopping = EarlyStopping(monitor='loss',
                                    min_delta=0,
-                                   patience=8,
+                                   patience=20,
                                    verbose=1,
                                    restore_best_weights=True)
 
     csv_logger = CSVLogger('log.csv', append=False)
 
-    call_backs = [checkpoint, csv_logger, reduce_lr]
+    call_backs = [checkpoint, csv_logger, reduce_lr, early_stopping]
 
-    model.compile(optimizer=Nadam(learning_rate=train_generator.learning_rate),
+    model.compile(optimizer=Adam(learning_rate=train_generator.learning_rate),
                   loss=LossYolo3(train_generator.input_size,
                                  train_generator.batch_size,
                                  train_generator.anchors_array,
                                  train_generator.pattern_shape,
                                  train_generator.classes,
                                  iou_ignore_thresh=0.5,
-                                 coord_scale=1,
+                                 coord_scale=2,
                                  class_scale=1,
                                  obj_scale=1,
                                  noobj_scale=0.5))

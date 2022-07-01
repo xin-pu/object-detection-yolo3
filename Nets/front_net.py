@@ -42,7 +42,7 @@ class YoloDetector(object):
             anchors = self.anchors[i]
             decode_out = self.decode(yolo, anchors)
             mask = tf.cast((tf.cast(decode_out[..., 4] > self.obj_thresh, float)) * (
-                tf.cast(decode_out[..., 5] > self.class_thresh, float)), bool)
+                tf.cast(decode_out[..., 5] >= self.class_thresh, float)), bool)
             filter_out = tf.boolean_mask(decode_out, mask)
             if filter_out.shape[0] != 0:
                 all_filter_out.append(filter_out)
@@ -78,24 +78,10 @@ class YoloDetector(object):
                            all_prob[i][5],
                            all_prob[i][6])
             print(box)
+            print(tf.reduce_sum(all_prob[i][7:]))
             boxes.append(box)
 
         # 6. return boxes
-        return boxes
-
-    def post_process(self, yolo_res, original_height, original_width):
-        boxes = []
-        # 小尺度  0， 中尺度 1， 大尺度 2，对应anchor 从小到大
-        lay = 0
-        for yolo_scale in yolo_res:
-            decode_boxes = self.decode(yolo_scale[0], self.anchors[lay])
-            lay += 1
-
-        # 2. correct box-scale to image size
-        correct_yolo_boxes(boxes, original_height, original_width)
-
-        # 3. suppress non-maximal boxes
-        nms_boxes(boxes, self.nms_thresh, self.obj_thresh)
         return boxes
 
     @staticmethod
@@ -142,7 +128,7 @@ class YoloDetector(object):
 
         label_index = tf.expand_dims(tf.cast(tf.argmax(classes_probs, axis=-1), tf.float32), axis=-1)
         class_prob = tf.expand_dims(tf.reduce_max(classes_probs, axis=-1), axis=-1)
-        decode_res = tf.concat([b_xy, b_wh, objectness_prob, class_prob, label_index], axis=-1)
+        decode_res = tf.concat([b_xy, b_wh, objectness_prob, class_prob, label_index, classes_probs], axis=-1)
 
         return decode_res
 

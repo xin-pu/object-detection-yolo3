@@ -50,14 +50,14 @@
     ]
   },
   "train": {
-    "num_epoch": 500,
+    "num_epoch": 300,
     "train_image_folder": "F:\\PASCALVOC\\VOC2012\\JPEGImages",
     "train_annot_folder": "F:\\PASCALVOC\\VOC2012\\Annotations",
     "valid_image_folder": "F:\\PASCALVOC\\VOC2007_Val\\JPEGImages",
     "valid_annot_folder": "F:\\PASCALVOC\\VOC2007_Val\\Annotations",
     "valid_size": 200,
     "batch_size": 32,
-    "learning_rate": 1E-3,
+    "learning_rate": 1E-4,
     "save_folder": "F:\\PASCALVOC\\train_output\\pascal_1.h5",
     "enhance": true,
     "shuffle": true,
