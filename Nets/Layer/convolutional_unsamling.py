@@ -9,7 +9,10 @@ class ConvolutionalUnSampling(Layer):
 
         layer_names = ["layer_{}".format(i) for i in layer_idx]
 
-        self.conv = Convolutional(filters, layer_idx=layer_idx[0], kernel_size=(1, 1), name=layer_names[0])
+        self.conv = Convolutional(filters,
+                                  layer_idx=layer_idx[0],
+                                  kernel_size=(1, 1),
+                                  name=layer_names[0])
         self.un_sampling = UpSampling2D(2)
 
     def call(self, inputs, training=False, **kwargs):

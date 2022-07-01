@@ -15,7 +15,7 @@ if __name__ == "__main__":
     model = task_parser.create_model(model_init=ModelInit.random)
 
     checkpoint = ModelCheckpoint(train_generator.save_folder,
-                                 monitor='loss',
+                                 monitor='val_loss',
                                  save_weights_only=True,
                                  save_best_only=True,
                                  save_freq='epoch',
@@ -34,9 +34,9 @@ if __name__ == "__main__":
         if epoch < 20:
             return 1E-2
         elif epoch < 50:
-            return 1E-3
-        elif epoch < 75:
             return 5E-3
+        elif epoch < 75:
+            return 1E-3
         else:
             return 1E-4
 
@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     csv_logger = CSVLogger('log.csv', append=False)
 
-    call_backs = [checkpoint, csv_logger]
+    call_backs = [checkpoint, csv_logger, learning_schedule]
 
     model.compile(optimizer=Nadam(learning_rate=train_generator.learning_rate),
                   loss=LossYolo3(train_generator.input_size,
@@ -55,7 +55,7 @@ if __name__ == "__main__":
                                  train_generator.classes,
                                  iou_ignore_thresh=0.5,
                                  coord_scale=2,
-                                 class_scale=1,
+                                 class_scale=0,
                                  obj_scale=1,
                                  noobj_scale=0.5))
 

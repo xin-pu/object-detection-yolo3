@@ -10,7 +10,11 @@ class ConvolutionalPool(Layer):
         layer_name = "layer_{}".format(layer_idx)
 
         self.pad = ZeroPadding2D(((1, 0), (1, 0)))
-        self.conv2 = Convolutional(filters, layer_idx, (3, 3), strides=(2, 2), padding='valid',
+        self.conv2 = Convolutional(filters,
+                                   layer_idx,
+                                   (3, 3),
+                                   strides=(2, 2),
+                                   padding='valid',
                                    name=layer_name)
 
     def call(self, inputs, training=False, **kwargs):

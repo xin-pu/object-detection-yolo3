@@ -16,7 +16,7 @@ def predict(task, image, model_initial):
     print("{0}\tCreate Detector\t{0}".format("-" * 30))
     detector = task_parser.create_detector(model,
                                            object_thresh=0.5,
-                                           class_thresh=0,  # 使用交叉熵，
+                                           class_thresh=0.5,  # 使用交叉熵，
                                            nms_thresh=0.5)
 
     # 3. run detection
@@ -47,7 +47,7 @@ if __name__ == '__main__':
     #         ModelInit.pretrain)
 
     # "F:\Raccoon\images\raccoon-170.jpg" 199, 193, 184, 170
-    predict(r'config\raccoon.json', r"F:\Raccoon\images\raccoon-199.jpg",
+    predict(r'config\raccoon.json', r"F:\Raccoon\images\raccoon-2.jpg",
             ModelInit.pretrain)
 
     # predict(r'config\module.json', r"F:\Module Object Detection\Val\images\000004.png",
