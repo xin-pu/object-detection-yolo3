@@ -40,11 +40,16 @@
     "batch_size": 8,
     "learning_rate": 1E-3,
     "save_folder": "F:\\Module Object Detection\\train_output\\model.h5",
+    "save_folder_val": "F:\\Module Object Detection\\train_output\\model_val.h5",
     "enhance": true,
     "shuffle": true,
     "random_net_size": false,
     "pre_train": false,
     "pretrain_weight": "F:\\Module Object Detection\\train_output\\model.h5",
-    "darknet_weight": "yolov3.weights"
+    "darknet_weight": "yolov3.weights",
+    "lambda_object": 1,
+    "lambda_no_object": 0.5,
+    "lambda_coord": 2,
+    "lambda_class": 0
   }
 }

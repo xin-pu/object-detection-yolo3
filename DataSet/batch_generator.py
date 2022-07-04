@@ -37,7 +37,13 @@ class BatchGenerator(object):
 
         self.data_length = len(self.annot_filenames)
         self.save_folder = train_configs.save_folder
+        self.save_folder_val = train_configs.save_folder_val
         self.epoch = train_configs.num_epoch
+
+        self.lambda_object = train_configs.lambda_object
+        self.lambda_no_object = train_configs.lambda_no_object
+        self.lambda_coord = train_configs.lambda_coord
+        self.lambda_class = train_configs.lambda_class
 
     def get_ann_filenames(self):
         return glob.glob(os.path.join(self.annot_folder, "*.xml"))

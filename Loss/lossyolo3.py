@@ -2,7 +2,22 @@ from tensorflow.python.keras.losses import *
 
 from Loss.loss_helper import *
 from Nets.yolo3_net import get_yolo3_backend
-from Utils.tf_iou import *
+from Utils.tf_iou import get_tf_iou
+
+
+def broadcast_iou(box_1, box_2):
+    # box_1: (..., (x1, y1, x2, y2))
+    # box_2: (N, (x1, y1, x2, y2))
+
+    # broadcast boxes
+    box_1 = tf.expand_dims(box_1, -2)
+    box_2 = tf.expand_dims(box_2, 0)
+
+    new_shape = tf.broadcast_dynamic_shape(box_1.shape, box_2.shape)
+    box_1 = tf.broadcast_to(box_1, new_shape)
+    box_2 = tf.broadcast_to(box_2, new_shape)
+
+    return get_tf_iou(box_1, box_2)
 
 
 class LossYolo3(Loss):
@@ -48,7 +63,7 @@ class LossYolo3(Loss):
                        y_pred.shape[-1] // 3]
         anchors_lay = self.pattern_array.index(shape_stand[1])  # 所属层
         anchors_current = tf.constant(self.anchor_array[anchors_lay], dtype=float)  # 当前层的三个Anchor
-        gird_cell_size = self.image_size / self.pattern_array[anchors_lay]  # 采样率，每个格子像素[8,16,32]
+        # gird_cell_size = self.image_size / self.pattern_array[anchors_lay]  # 采样率，每个格子像素[8,16,32]
         grid_size = y_pred.shape[1]  # [52,26,13]
 
         # Step 1 transform all pred output
@@ -80,7 +95,7 @@ class LossYolo3(Loss):
             mask_ignore = tf.ones([y_true.shape[0], grid_size, grid_size, 3])
         else:
             pred_b_coord, true_b_coord_filter = self.broadcast_box(pred_b_coord, true_b_coord_filter)
-            ious = get_tf_giou(pred_b_coord, true_b_coord_filter)
+            ious = get_tf_iou(pred_b_coord, true_b_coord_filter)
             best_iou = tf.reduce_max(ious, axis=-1)
             mask_ignore = tf.where(best_iou < self.iou_ignore_thresh, tf.constant(1.), tf.constant(0.))
 
@@ -106,6 +121,7 @@ class LossYolo3(Loss):
                                          self.lambda_class,
                                          self.classes)
         total_loss = loss_confidence + loss_coord + loss_class
+        # print("{},{},{}".format(loss_confidence, loss_coord, loss_class))
         return total_loss
 
     @staticmethod
@@ -116,6 +132,7 @@ class LossYolo3(Loss):
             ignore_mask,
             lambda_object=1,
             lambda_no_object=1):
+        # bc_loss = binary_crossentropy(confidence_truth, tf.sigmoid(confidence_pred))
         bc_loss = binary_crossentropy(confidence_truth, tf.sigmoid(confidence_pred))
 
         object_loss = object_mask * bc_loss
@@ -145,9 +162,9 @@ class LossYolo3(Loss):
             return lambda_class * tf.reduce_sum(object_mask * binary_crossentropy(class_truth, class_prob_pred),
                                                 list(range(1, 4)))
         else:
-
             label = tf.argmax(class_truth, axis=-1)
-            loss_cross_entropy = object_mask * sparse_categorical_crossentropy(label, class_prob_pred)
+            loss_cross_entropy = object_mask * binary_crossentropy(label, class_prob_pred)
+            # print(tf.reduce_sum(class_pred, axis=-1))
             loss_class = lambda_class * tf.reduce_sum(loss_cross_entropy, list(range(1, 4)))
             return loss_class
 

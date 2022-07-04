@@ -63,7 +63,7 @@ class YoloDetector(object):
         selected_indices, selected_scores = tf.image.non_max_suppression_with_scores(bbox,
                                                                                      scores,
                                                                                      100,
-                                                                                     score_threshold=self.class_thresh,
+                                                                                     # score_threshold=self.class_thresh,
                                                                                      iou_threshold=self.nms_thresh)
         count_before_nms = all_prob.shape[0]
         count_after_nms = len(selected_indices)
@@ -129,7 +129,8 @@ class YoloDetector(object):
 
         label_index = tf.expand_dims(tf.cast(tf.argmax(classes_probs, axis=-1), tf.float32), axis=-1)
         max_prod = tf.expand_dims(tf.reduce_max(classes_probs, axis=-1), axis=-1)
-        class_prob = max_prod if classes_probs.shape[-1] == 1 else max_prod / tf.reduce_sum(classes_probs)
+        sum = tf.expand_dims(tf.reduce_sum(classes_probs, axis=-1), axis=-1)
+        class_prob = max_prod if classes_probs.shape[-1] == 1 else max_prod / sum
 
         decode_res = tf.concat([b_xy, b_wh, objectness_prob, class_prob, label_index, classes_probs], axis=-1)
 

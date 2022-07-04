@@ -33,12 +33,17 @@ class TrainConfig(object):
         self.batch_size = config["batch_size"]
         self.learning_rate = config["learning_rate"]
         self.save_folder = config["save_folder"]
+        self.save_folder_val = config["save_folder_val"]
         self.enhance = config["enhance"]
         self.shuffle = config["shuffle"]
         self.random_net_size = config["random_net_size"]
         self.pretrain_weight = config["pretrain_weight"]
         self.darknet_weight = config["darknet_weight"]
         self.pre_train = config["pre_train"]
+        self.lambda_object = config["lambda_object"]
+        self.lambda_no_object = config["lambda_no_object"]
+        self.lambda_coord = config["lambda_coord"]
+        self.lambda_class = config["lambda_class"]
 
     def __str__(self):
         info = "-" * 20 + type(self).__name__ + "-" * 20 + "\r\n"
@@ -48,7 +53,7 @@ class TrainConfig(object):
 
 
 if __name__ == "__main__":
-    with open("pascalVoc.json") as data_file:
+    with open("raccoon.json") as data_file:
         configs = json.load(data_file)
 
     model_config = ModelConfig(configs["model"])

@@ -59,11 +59,16 @@
     "batch_size": 1,
     "learning_rate": 1E-3,
     "save_folder": "F:\\PASCALVOC\\train_output\\pascal.h5",
+    "save_folder_val": "F:\\Raccoon\\train_output\\pascal_val.h5",
     "enhance": false,
     "shuffle": false,
     "random_net_size": false,
     "pre_train": false,
     "pretrain_weight": "F:\\PASCALVOC\\train_output\\pascal.h5",
-    "darknet_weight": "yolov3.weights"
+    "darknet_weight": "yolov3.weights",
+    "lambda_object": 1,
+    "lambda_no_object": 0.5,
+    "lambda_coord": 2,
+    "lambda_class": 1
   }
 }

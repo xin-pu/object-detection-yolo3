@@ -31,7 +31,7 @@
     ]
   },
   "train": {
-    "num_epoch": 100,
+    "num_epoch": 1000,
     "train_image_folder": "F:\\Raccoon\\images",
     "train_annot_folder": "F:\\Raccoon\\annotations\\test",
     "valid_image_folder": "F:\\Raccoon\\images",
@@ -40,11 +40,16 @@
     "batch_size": 8,
     "learning_rate": 1e-3,
     "save_folder": "F:\\Raccoon\\train_output\\raccoon.h5",
+    "save_folder_val": "F:\\Raccoon\\train_output\\raccoon_val.h5",
     "enhance": true,
     "shuffle": true,
     "random_net_size": false,
     "pre_train": false,
     "pretrain_weight": "F:\\Raccoon\\train_output\\raccoon.h5",
-    "darknet_weight": "yolov3.weights"
+    "darknet_weight": "yolov3.weights",
+    "lambda_object": 1,
+    "lambda_no_object": 0.5,
+    "lambda_coord": 2,
+    "lambda_class": 0
   }
 }
