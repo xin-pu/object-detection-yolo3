@@ -24,7 +24,7 @@ class Convolutional(Layer):
                            padding=padding,
                            use_bias=False,
                            kernel_initializer=random_normal(stddev=0.02),
-                           kernel_regularizer=l1_l2(5e-4),
+                           # kernel_regularizer=l1_l2(5e-4),
                            name=layer_name)
         self.bn = BatchNormalization(name=layer_name)
         self.leaky_relu = LeakyReLU(alpha=0.1, name=layer_name)

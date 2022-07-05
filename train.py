@@ -6,13 +6,13 @@ from Loss.lossyolo3 import LossYolo3
 from task import TaskParser, ModelInit
 
 if __name__ == "__main__":
-    task_parser = TaskParser(r'config\raccoon.json')
+    task_parser = TaskParser(r'config\pascalVoc.json')
 
     # 1. create generator
     train_generator, valid_generator = task_parser.create_generator()
 
     # Create Mode
-    model = task_parser.create_model(model_init=ModelInit.random)
+    model = task_parser.create_model(model_init=ModelInit.pretrain)
 
     checkpoint = ModelCheckpoint(train_generator.save_folder,
                                  monitor='loss',
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     def lr_schedule(epoch):
 
         if epoch < 20:
-            return 1E-2
+            return 1E-3
         elif epoch < 100:
             return 1E-3
         elif epoch < 200:

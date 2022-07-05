@@ -50,7 +50,7 @@
     ]
   },
   "train": {
-    "num_epoch": 200,
+    "num_epoch": 500,
     "train_image_folder": "F:\\PASCALVOC\\VOC2012\\JPEGImages",
     "train_annot_folder": "F:\\PASCALVOC\\VOC2012\\Annotations",
     "valid_image_folder": "F:\\PASCALVOC\\VOC2007_Val\\JPEGImages",
@@ -66,9 +66,9 @@
     "pre_train": false,
     "pretrain_weight": "F:\\PASCALVOC\\train_output\\pascal.h5",
     "darknet_weight": "yolov3.weights",
-    "lambda_object": 1,
+    "lambda_object": 2,
     "lambda_no_object": 0.5,
     "lambda_coord": 2,
-    "lambda_class": 1
+    "lambda_class": 2
   }
 }

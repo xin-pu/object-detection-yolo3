@@ -163,7 +163,7 @@ class LossYolo3(Loss):
                                                 list(range(1, 4)))
         else:
             label = tf.argmax(class_truth, axis=-1)
-            loss_cross_entropy = object_mask * binary_crossentropy(label, class_prob_pred)
+            loss_cross_entropy = object_mask * sparse_categorical_crossentropy(label, class_prob_pred)
             # print(tf.reduce_sum(class_pred, axis=-1))
             loss_class = lambda_class * tf.reduce_sum(loss_cross_entropy, list(range(1, 4)))
             return loss_class

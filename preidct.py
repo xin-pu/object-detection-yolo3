@@ -16,7 +16,7 @@ def predict(task, image, model_initial):
     print("{0}\tCreate Detector\t{0}".format("-" * 30))
     detector = task_parser.create_detector(model,
                                            object_thresh=0.9,
-                                           class_thresh=0.5,  # 使用交叉熵，
+                                           class_thresh=0.8,  # 使用交叉熵，
                                            nms_thresh=0.5)
 
     # 3. run detection
@@ -43,11 +43,11 @@ def predict(task, image, model_initial):
 
 
 if __name__ == '__main__':
-    # predict(r'config\pascalVoc.json', r"F:\PASCALVOC\VOC2012\JPEGImages\2010_004059.jpg",
+    # predict(r'config\pascalVoc.json', r"F:\PASCALVOC\VOC2007_Val\JPEGImages\000178.jpg",
     #         ModelInit.pretrain)
 
     # "F:\Raccoon\images\raccoon-170.jpg" 199, 193, 184, 170, 148, 156
-    predict(r'config\raccoon.json', r"F:\Raccoon\images\raccoon-16.jpg",
+    predict(r'config\raccoon.json', r"F:\Raccoon\images\raccoon-148.jpg",
             ModelInit.pretrain)
 
     # predict(r'config\module.json', r"F:\Module Object Detection\Val\images\000004.png",
